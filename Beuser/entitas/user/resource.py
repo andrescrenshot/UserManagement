@@ -1,8 +1,5 @@
+import json
 import falcon
-import jwt
-from datetime import datetime, timedelta, timezone
-
-import config
 
 from .services import register_user, login_user
 
@@ -10,132 +7,156 @@ from .services import register_user, login_user
 class RegisterResource:
 
     def on_post(self, req, resp):
-        data = req.media
+        try:
+            data = req.get_media()
 
-        title = data.get("title")
-        nama = data.get("nama")
-        noHp = data.get("noHp")
-        email = data.get("email")
-        tanggalLahir = data.get("tanggalLahir")
-        password = data.get("password")
-        roles = data.get("roles", "Member")
+            title = data.get("title", "").strip()
+            nama = data.get("nama", "").strip()
+            noHp = data.get("noHp", "").strip()
+            email = data.get("email", "").strip()
+            tanggalLahir = data.get("tanggalLahir", "").strip()
+            password = data.get("password", "").strip()
+            roles = data.get("roles", "Member").strip()
 
-        if not title:
-            raise falcon.HTTPBadRequest(
-                title="Register gagal",
-                description="Title wajib diisi"
+            if not title:
+                resp.status = falcon.HTTP_400
+                resp.media = {
+                    "success": False,
+                    "message": "Title wajib diisi"
+                }
+                return
+
+            if not nama:
+                resp.status = falcon.HTTP_400
+                resp.media = {
+                    "success": False,
+                    "message": "Nama wajib diisi"
+                }
+                return
+
+            if not noHp:
+                resp.status = falcon.HTTP_400
+                resp.media = {
+                    "success": False,
+                    "message": "Nomor HP wajib diisi"
+                }
+                return
+
+            if not email:
+                resp.status = falcon.HTTP_400
+                resp.media = {
+                    "success": False,
+                    "message": "Email wajib diisi"
+                }
+                return
+
+            if not tanggalLahir:
+                resp.status = falcon.HTTP_400
+                resp.media = {
+                    "success": False,
+                    "message": "Tanggal lahir wajib diisi"
+                }
+                return
+
+            if not password:
+                resp.status = falcon.HTTP_400
+                resp.media = {
+                    "success": False,
+                    "message": "Password wajib diisi"
+                }
+                return
+
+            if len(password) < 6:
+                resp.status = falcon.HTTP_400
+                resp.media = {
+                    "success": False,
+                    "message": "Password minimal 6 karakter"
+                }
+                return
+
+            result = register_user(
+                title=title,
+                nama=nama,
+                noHp=noHp,
+                email=email,
+                tanggalLahir=tanggalLahir,
+                password=password,
+                roles=roles
             )
 
-        if not nama:
-            raise falcon.HTTPBadRequest(
-                title="Register gagal",
-                description="Nama wajib diisi"
-            )
+            if result is None:
+                resp.status = falcon.HTTP_409
+                resp.media = {
+                    "success": False,
+                    "message": "Email sudah terdaftar"
+                }
+                return
 
-        if not noHp:
-            raise falcon.HTTPBadRequest(
-                title="Register gagal",
-                description="Nomor HP wajib diisi"
-            )
+            resp.status = falcon.HTTP_201
+            resp.media = {
+                "success": True,
+                "message": "Registrasi berhasil",
+                "user": result
+            }
 
-        if not email:
-            raise falcon.HTTPBadRequest(
-                title="Register gagal",
-                description="Email wajib diisi"
-            )
-
-        if not tanggalLahir:
-            raise falcon.HTTPBadRequest(
-                title="Register gagal",
-                description="Tanggal lahir wajib diisi"
-            )
-
-        if not password:
-            raise falcon.HTTPBadRequest(
-                title="Register gagal",
-                description="Password wajib diisi"
-            )
-
-        if len(password) < 6:
-            raise falcon.HTTPBadRequest(
-                title="Register gagal",
-                description="Password minimal 6 karakter"
-            )
-
-        user = register_user(
-            title=title,
-            nama=nama,
-            noHp=noHp,
-            email=email,
-            tanggalLahir=tanggalLahir,
-            password=password,
-            roles=roles
-        )
-
-        if not user:
-            raise falcon.HTTPConflict(
-                title="Register gagal",
-                description="Email sudah terdaftar"
-            )
-
-        resp.status = falcon.HTTP_201
-
-        resp.media = {
-            "success": True,
-            "message": "Registrasi berhasil",
-            "data": user
-        }
+        except Exception as e:
+            resp.status = falcon.HTTP_500
+            resp.media = {
+                "success": False,
+                "message": "Terjadi kesalahan pada server",
+                "error": str(e)
+            }
 
 
 class LoginResource:
 
     def on_post(self, req, resp):
-        data = req.media
+        try:
+            data = req.get_media()
 
-        email = data.get("email")
-        password = data.get("password")
+            email = data.get("email", "").strip()
+            password = data.get("password", "")
 
-        if not email:
-            raise falcon.HTTPBadRequest(
-                title="Login gagal",
-                description="Email wajib diisi"
+            if not email:
+                resp.status = falcon.HTTP_400
+                resp.media = {
+                    "success": False,
+                    "message": "Email wajib diisi"
+                }
+                return
+
+            if not password:
+                resp.status = falcon.HTTP_400
+                resp.media = {
+                    "success": False,
+                    "message": "Password wajib diisi"
+                }
+                return
+
+            user = login_user(
+                email=email,
+                password=password
             )
 
-        if not password:
-            raise falcon.HTTPBadRequest(
-                title="Login gagal",
-                description="Password wajib diisi"
-            )
+            if user is None:
+                resp.status = falcon.HTTP_401
+                resp.media = {
+                    "success": False,
+                    "message": "Email atau password salah"
+                }
+                return
 
-        user = login_user(
-            email=email,
-            password=password
-        )
+            resp.status = falcon.HTTP_200
+            resp.media = {
+                "success": True,
+                "message": "Login berhasil",
+                "user": user
+            }
 
-        if not user:
-            raise falcon.HTTPUnauthorized(
-                title="Login gagal",
-                description="Email atau password salah"
-            )
-
-        payload = {
-            "id": user["id"],
-            "email": user["email"],
-            "roles": user["roles"],
-            "exp": datetime.now(timezone.utc) + timedelta(hours=8)
-        }
-
-        token = jwt.encode(
-            payload,
-            config.JWT_SECRET,
-            algorithm="HS256"
-        )
-
-        resp.status = falcon.HTTP_200
-
-        resp.media = {
-            "success": True,
-            "message": "Login berhasil",
-            "token": token,
-            "data": user
-        }
+        except Exception as e:
+            resp.status = falcon.HTTP_500
+            resp.media = {
+                "success": False,
+                "message": "Terjadi kesalahan pada server",
+                "error": str(e)
+            }

@@ -34,6 +34,9 @@ def register_user(
     if existing_user:
         return None
 
+    if title not in ["Tn", "Ny", "Nn"]:
+        return None
+
     hashed_password = bcrypt.hashpw(
         password.encode("utf-8"),
         bcrypt.gensalt()

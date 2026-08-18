@@ -5,6 +5,7 @@ import Login from "./Pages/Login";
 import Dashboard from "./Pages/Dashboard";
 import TambahUser from "./Pages/UserTambah";
 import EditUser from "./Pages/EditUser";
+import Register from "./Pages/Register";
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/Register" element={<Register />} />
 
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<Dashboard />} />

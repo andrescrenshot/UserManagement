@@ -1,7 +1,10 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const API_URL = "http://127.0.0.1:9983";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -18,9 +21,6 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
-  // =========================
-  // VALIDASI EMAIL
-  // =========================
   const validateEmail = (value) => {
     if (value.trim() === "") {
       return "Email wajib diisi";
@@ -33,9 +33,6 @@ export default function Login() {
     return "";
   };
 
-  // =========================
-  // VALIDASI PASSWORD
-  // =========================
   const validatePassword = (value) => {
     if (value.trim() === "") {
       return "Kata sandi wajib diisi";
@@ -44,9 +41,6 @@ export default function Login() {
     return "";
   };
 
-  // =========================
-  // EMAIL CHANGE
-  // =========================
   const handleEmailChange = (e) => {
     const value = e.target.value;
 
@@ -60,9 +54,6 @@ export default function Login() {
     setSubmitError("");
   };
 
-  // =========================
-  // PASSWORD CHANGE
-  // =========================
   const handlePasswordChange = (e) => {
     const value = e.target.value;
 
@@ -76,9 +67,6 @@ export default function Login() {
     setSubmitError("");
   };
 
-  // =========================
-  // CEK FORM
-  // =========================
   const isFormValid = () => {
     return (
       email.trim() !== "" &&
@@ -88,9 +76,6 @@ export default function Login() {
     );
   };
 
-  // =========================
-  // LOGIN
-  // =========================
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -103,6 +88,13 @@ export default function Login() {
         password: passwordError,
       });
 
+      await Swal.fire({
+        icon: "warning",
+        title: "Form belum lengkap",
+        text: "Silakan isi email dan kata sandi dengan benar.",
+        confirmButtonColor: "#0B2B8E",
+      });
+
       return;
     }
 
@@ -110,64 +102,97 @@ export default function Login() {
     setSubmitError("");
 
     try {
-      // Simulasi proses login
-      await new Promise((resolve) => setTimeout(resolve, 700));
+      const response = await fetch(`${API_URL}/api/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password,
+        }),
+      });
 
-      // Ambil data user dari localStorage
-      const savedUsers = localStorage.getItem("users_data");
+      const data = await response.json();
 
-      const users = savedUsers ? JSON.parse(savedUsers) : [];
+      if (!response.ok) {
+        const message =
+          data?.message ||
+          data?.error ||
+          "Ups, login gagal! Masukkan email & password yang benar.";
 
-      // Cari user berdasarkan email
-      const foundUser = users.find(
-        (user) =>
-          user.email?.toLowerCase() === email.trim().toLowerCase()
-      );
-
-      // User tidak ditemukan
-      if (!foundUser) {
-        setSubmitError(
-          "Ups, login gagal! Masukkan email & password yang benar."
-        );
+        setSubmitError(message);
 
         setSubmitting(false);
+
+        await Swal.fire({
+          icon: "error",
+          title: "Login Gagal",
+          text: message,
+          confirmButtonColor: "#0B2B8E",
+        });
+
         return;
       }
 
-      // Kalau data user memiliki password,
-      // cek juga password-nya
-      if (foundUser.password && foundUser.password !== password) {
+      const user =
+        data?.user ||
+        data?.data?.user ||
+        data?.data ||
+        null;
+
+      if (!user) {
         setSubmitError(
-          "Ups, login gagal! Masukkan email & password yang benar."
+          "Login berhasil tetapi data user tidak ditemukan."
         );
 
         setSubmitting(false);
+
+        await Swal.fire({
+          icon: "error",
+          title: "Login Gagal",
+          text: "Data user dari server tidak ditemukan.",
+          confirmButtonColor: "#0B2B8E",
+        });
+
         return;
       }
 
-      // Simpan user yang sedang login
       localStorage.setItem(
         "current_user",
-        JSON.stringify(foundUser)
+        JSON.stringify(user)
       );
 
-      // Simpan status login
       localStorage.setItem("isLoggedIn", "true");
 
       setSubmitting(false);
 
-      // =========================
-      // MASUK KE DASHBOARD
-      // =========================
+      await Swal.fire({
+        icon: "success",
+        title: "Login Berhasil",
+        text: `Selamat datang, ${user.nama || "User"}!`,
+        confirmButtonColor: "#0B2B8E",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+
       navigate("/dashboard");
     } catch (error) {
       console.error("Login error:", error);
 
-      setSubmitError(
-        "Terjadi kesalahan saat login. Silakan coba lagi."
-      );
+      const message =
+        "Tidak dapat terhubung ke server. Pastikan backend sedang berjalan.";
+
+      setSubmitError(message);
 
       setSubmitting(false);
+
+      await Swal.fire({
+        icon: "error",
+        title: "Server Tidak Terhubung",
+        text: message,
+        confirmButtonColor: "#0B2B8E",
+      });
     }
   };
 
@@ -183,13 +208,12 @@ export default function Login() {
       <div
         className="bg-white shadow-sm"
         style={{
-          width: "150%",
+          width: "100%",
           maxWidth: "500px",
           borderRadius: "16px",
           padding: "35px",
-        }}  
+        }}
       >
-        {/* HEADER */}
         <div className="text-center mb-4">
           <h3
             className="fw-bold mb-2"
@@ -203,7 +227,6 @@ export default function Login() {
           </p>
         </div>
 
-        {/* ERROR LOGIN */}
         {submitError && (
           <div
             className="alert alert-danger py-2 small"
@@ -213,9 +236,7 @@ export default function Login() {
           </div>
         )}
 
-        {/* FORM */}
         <form onSubmit={handleSubmit}>
-          {/* EMAIL */}
           <div className="mb-3">
             <label
               htmlFor="loginEmail"
@@ -246,7 +267,6 @@ export default function Login() {
             )}
           </div>
 
-          {/* PASSWORD */}
           <div className="mb-2">
             <label
               htmlFor="loginPassword"
@@ -302,17 +322,16 @@ export default function Login() {
             )}
           </div>
 
-          {/* LUPA PASSWORD */}
           <div className="text-end mb-3 mt-2">
-            <a
-              href="#"
-              className="small text-dark text-decoration-none fw-semibold"
+            <button
+              type="button"
+              className="btn p-0 small text-dark text-decoration-none fw-semibold"
+              onClick={() => navigate("/register")}
             >
               Lupa Sandi?
-            </a>
+            </button>
           </div>
 
-          {/* BUTTON LOGIN */}
           <button
             type="submit"
             className="btn w-100 fw-semibold text-white text-uppercase"
@@ -332,7 +351,6 @@ export default function Login() {
             {submitting ? "Memproses..." : "Masuk"}
           </button>
 
-          {/* TERMS */}
           <p
             className="text-center text-muted mt-3 mb-0"
             style={{
@@ -360,7 +378,6 @@ export default function Login() {
           </p>
         </form>
 
-        {/* COPYRIGHT */}
         <p
           className="text-center text-muted mt-4 mb-0"
           style={{ fontSize: "11px" }}
