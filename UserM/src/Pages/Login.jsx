@@ -293,7 +293,7 @@ export default function Login() {
 
               <button
                 type="button"
-                className="btn btn-sm position-absolute text-muted"
+                className="b   btn-sm position-absolute text-muted"
                 style={{
                   border: "none",
                   background: "none",

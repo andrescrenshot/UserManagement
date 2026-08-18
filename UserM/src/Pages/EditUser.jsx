@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { RiCalendarLine } from "react-icons/ri";
 import Swal from "sweetalert2";
-import { getUserById, updateUser } from "../Pages/UserStore";
+import { getUserApi, updateUserApi } from "../api/userApi";
 
 const BLUE = "#1226C4";
 const GRAY_BTN = "#C7CCD6";
@@ -33,59 +33,130 @@ const errorStyle = {
 };
 
 const EMAIL_RULE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const titleMap = { Tuan: "Tn", Nyonya: "Ny", Nona: "Nn" };
-const reverseTitleMap = { Tn: "Tuan", Ny: "Nyonya", Nn: "Nona" };
+
+const titleMap = {
+  Tuan: "Tn",
+  Nyonya: "Ny",
+  Nona: "Nn",
+};
+
+const reverseTitleMap = {
+  Tn: "Tuan",
+  Ny: "Nyonya",
+  Nn: "Nona",
+};
 
 export default function EditUser() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const existingUser = getUserById(id);
 
-  const [form, setForm] = useState(
-    existingUser
-      ? {
-          title: reverseTitleMap[existingUser.title] || "Nona",
-          nama: existingUser.nama,
-          noHp: (existingUser.noHp || "").replace(/[^0-9]/g, "").replace(/^62/, ""),
-          email: existingUser.email,
-          tanggalLahir: existingUser.tanggalLahir,
-          roles: existingUser.roles,
-        }
-      : null
-  );
+  const [form, setForm] = useState({
+    title: "Nona",
+    nama: "",
+    noHp: "",
+    email: "",
+    tanggalLahir: "",
+    roles: "",
+  });
+
   const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [notFound, setNotFound] = useState(false);
 
-  if (!existingUser) {
-    return (
-      <div style={{ padding: "28px", color: "#6B7280" }}>
-        User tidak ditemukan.{" "}
-        <span
-          style={{ color: BLUE, cursor: "pointer", textDecoration: "underline" }}
-          onClick={() => navigate("/Dashboard")}
-        >
-          Kembali ke daftar user
-        </span>
-      </div>
-    );
-  }
+  // ==========================================
+  // GET USER DARI BACKEND
+  // ==========================================
 
-  const handleChange = (field) => (e) =>
-    setForm({ ...form, [field]: e.target.value });
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        setLoading(true);
+
+        const response = await getUserApi(id);
+
+        const user = response.data;
+
+        setForm({
+          title: reverseTitleMap[user.title] || "Nona",
+
+          nama: user.nama || "",
+
+          noHp: (user.noHp || "")
+            .replace(/[^0-9]/g, "")
+            .replace(/^62/, ""),
+
+          email: user.email || "",
+
+          tanggalLahir: user.tanggalLahir || "",
+
+          roles: user.roles || "",
+        });
+
+      } catch (error) {
+        console.error("Gagal mengambil user:", error);
+
+        setNotFound(true);
+
+        Swal.fire({
+          icon: "error",
+          title: "Gagal!",
+          text:
+            error.message ||
+            "Data user tidak ditemukan.",
+          confirmButtonColor: BLUE,
+        }).then(() => {
+          navigate("/Dashboard");
+        });
+
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUser();
+  }, [id, navigate]);
+
+  // ==========================================
+  // HANDLE INPUT
+  // ==========================================
+
+  const handleChange = (field) => (e) => {
+    setForm({
+      ...form,
+      [field]: e.target.value,
+    });
+  };
+
+  // ==========================================
+  // HANDLE NO HP
+  // ==========================================
 
   const handlePhoneChange = (e) => {
     const digitsOnly = e.target.value.replace(/[^0-9]/g, "");
-    setForm({ ...form, noHp: digitsOnly });
+
+    setForm({
+      ...form,
+      noHp: digitsOnly,
+    });
   };
+
+  // ==========================================
+  // VALIDASI
+  // ==========================================
 
   const validate = () => {
     const newErrors = {};
 
-    if (!form.nama.trim()) newErrors.nama = "Nama lengkap wajib diisi";
+    if (!form.nama.trim()) {
+      newErrors.nama = "Nama lengkap wajib diisi";
+    }
 
     if (!form.noHp) {
       newErrors.noHp = "No. handphone wajib diisi";
     } else if (("62" + form.noHp).length > 15) {
-      newErrors.noHp = "Maksimum terdiri dari 15 angka termasuk kode negara";
+      newErrors.noHp =
+        "Maksimum terdiri dari 15 angka termasuk kode negara";
     }
 
     if (!form.email) {
@@ -94,17 +165,30 @@ export default function EditUser() {
       newErrors.email = "Masukkan email yang valid";
     }
 
-    if (!form.tanggalLahir) newErrors.tanggalLahir = "Tanggal lahir wajib diisi";
-    if (!form.roles) newErrors.roles = "Pilih role terlebih dahulu";
+    if (!form.tanggalLahir) {
+      newErrors.tanggalLahir =
+        "Tanggal lahir wajib diisi";
+    }
+
+    if (!form.roles) {
+      newErrors.roles = "Pilih role terlebih dahulu";
+    }
 
     return newErrors;
   };
 
-  const isValid = Object.keys(validate()).length === 0;
+  const isValid =
+    Object.keys(validate()).length === 0;
 
-  const handleSubmit = (e) => {
+  // ==========================================
+  // SUBMIT UPDATE
+  // ==========================================
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
     const newErrors = validate();
+
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length > 0) {
@@ -114,30 +198,111 @@ export default function EditUser() {
         text: "Pastikan memasukkan data yang benar. Coba lagi!",
         confirmButtonColor: BLUE,
       });
+
       return;
     }
 
-    updateUser(id, {
-      title: titleMap[form.title],
-      nama: form.nama,
-      noHp: `(+62) ${form.noHp}`,
-      email: form.email,
-      tanggalLahir: form.tanggalLahir,
-      roles: form.roles,
-    });
+    try {
+      setSaving(true);
 
-    Swal.fire({
-      icon: "success",
-      title: "Berhasil!",
-      text: "Perubahan data user berhasil disimpan.",
-      confirmButtonColor: BLUE,
-    }).then(() => {
+      await updateUserApi(id, {
+        title: titleMap[form.title],
+        nama: form.nama.trim(),
+        noHp: form.noHp,
+        email: form.email.trim(),
+        tanggalLahir: form.tanggalLahir,
+        roles: form.roles,
+      });
+
+      await Swal.fire({
+        icon: "success",
+        title: "Berhasil!",
+        text: "Perubahan data user berhasil disimpan.",
+        confirmButtonColor: BLUE,
+      });
+
       navigate("/Dashboard");
-    });
+
+    } catch (error) {
+      console.error("Gagal update user:", error);
+
+      Swal.fire({
+        icon: "error",
+        title: "Gagal!",
+        text:
+          error.message ||
+          "Gagal memperbarui data user.",
+        confirmButtonColor: BLUE,
+      });
+
+    } finally {
+      setSaving(false);
+    }
   };
 
+  // ==========================================
+  // LOADING
+  // ==========================================
+
+  if (loading) {
+    return (
+      <div
+        style={{
+          padding: "40px",
+          textAlign: "center",
+          color: "#6B7280",
+        }}
+      >
+        Memuat data user...
+      </div>
+    );
+  }
+
+  // ==========================================
+  // USER TIDAK DITEMUKAN
+  // ==========================================
+
+  if (notFound) {
+    return (
+      <div
+        style={{
+          padding: "28px",
+          color: "#6B7280",
+        }}
+      >
+        User tidak ditemukan.
+
+        <span
+          style={{
+            color: BLUE,
+            cursor: "pointer",
+            textDecoration: "underline",
+            marginLeft: "5px",
+          }}
+          onClick={() => navigate("/Dashboard")}
+        >
+          Kembali ke daftar user
+        </span>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // UI
+  // ==========================================
+
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, width: "100%" }}>
+    <div
+      style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        minWidth: 0,
+        width: "100%",
+      }}
+    >
+      {/* HEADER */}
+
       <div
         style={{
           background: "#101B4C",
@@ -150,6 +315,8 @@ export default function EditUser() {
         CRM For Education Binus
       </div>
 
+      {/* CONTENT */}
+
       <div
         style={{
           flex: 1,
@@ -159,13 +326,19 @@ export default function EditUser() {
           background: "#F5F6FA",
         }}
       >
-        <div style={{ width: "100%", maxWidth: "560px" }}>
+        <div
+          style={{
+            width: "100%",
+            maxWidth: "560px",
+          }}
+        >
           <div
             style={{
               background: "white",
               borderRadius: "16px",
               padding: "32px 36px",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+              boxShadow:
+                "0 1px 3px rgba(0,0,0,0.06)",
             }}
           >
             <h2
@@ -182,11 +355,25 @@ export default function EditUser() {
             </h2>
 
             <form onSubmit={handleSubmit}>
-              {/* Title */}
+
+              {/* TITLE */}
+
               <div style={{ marginBottom: "18px" }}>
-                <label style={labelStyle}>Title</label>
-                <div style={{ display: "flex", gap: "24px" }}>
-                  {["Tuan", "Nyonya", "Nona"].map((opt) => (
+                <label style={labelStyle}>
+                  Title
+                </label>
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "24px",
+                  }}
+                >
+                  {[
+                    "Tuan",
+                    "Nyonya",
+                    "Nona",
+                  ].map((opt) => (
                     <label
                       key={opt}
                       style={{
@@ -201,18 +388,30 @@ export default function EditUser() {
                       <input
                         type="radio"
                         name="title"
-                        checked={form.title === opt}
-                        onChange={() => setForm({ ...form, title: opt })}
+                        checked={
+                          form.title === opt
+                        }
+                        onChange={() =>
+                          setForm({
+                            ...form,
+                            title: opt,
+                          })
+                        }
                       />
+
                       {opt}
                     </label>
                   ))}
                 </div>
               </div>
 
-              {/* Nama Lengkap */}
+              {/* NAMA */}
+
               <div style={{ marginBottom: "18px" }}>
-                <label style={labelStyle}>Nama Lengkap</label>
+                <label style={labelStyle}>
+                  Nama Lengkap
+                </label>
+
                 <input
                   type="text"
                   placeholder="Masukkan Nama Lengkap"
@@ -220,13 +419,27 @@ export default function EditUser() {
                   onChange={handleChange("nama")}
                   style={inputStyle}
                 />
-                {errors.nama && <div style={errorStyle}>{errors.nama}</div>}
+
+                {errors.nama && (
+                  <div style={errorStyle}>
+                    {errors.nama}
+                  </div>
+                )}
               </div>
 
-              {/* No. Handphone */}
+              {/* NO HP */}
+
               <div style={{ marginBottom: "18px" }}>
-                <label style={labelStyle}>No. Handphone</label>
-                <div style={{ display: "flex", gap: "10px" }}>
+                <label style={labelStyle}>
+                  No. Handphone
+                </label>
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "10px",
+                  }}
+                >
                   <div
                     style={{
                       display: "flex",
@@ -243,21 +456,34 @@ export default function EditUser() {
                   >
                     🇮🇩 +62
                   </div>
+
                   <input
                     type="text"
                     inputMode="numeric"
                     placeholder="Cth: 812-xxxx-xxxx"
                     value={form.noHp}
                     onChange={handlePhoneChange}
-                    style={{ ...inputStyle, flex: 1 }}
+                    style={{
+                      ...inputStyle,
+                      flex: 1,
+                    }}
                   />
                 </div>
-                {errors.noHp && <div style={errorStyle}>{errors.noHp}</div>}
+
+                {errors.noHp && (
+                  <div style={errorStyle}>
+                    {errors.noHp}
+                  </div>
+                )}
               </div>
 
-              {/* Email */}
+              {/* EMAIL */}
+
               <div style={{ marginBottom: "18px" }}>
-                <label style={labelStyle}>Email</label>
+                <label style={labelStyle}>
+                  Email
+                </label>
+
                 <input
                   type="email"
                   placeholder="Misal: nama@email.com"
@@ -265,55 +491,112 @@ export default function EditUser() {
                   onChange={handleChange("email")}
                   style={inputStyle}
                 />
-                {errors.email && <div style={errorStyle}>{errors.email}</div>}
+
+                {errors.email && (
+                  <div style={errorStyle}>
+                    {errors.email}
+                  </div>
+                )}
               </div>
 
-              {/* Tanggal Lahir */}
+              {/* TANGGAL LAHIR */}
+
               <div style={{ marginBottom: "18px" }}>
-                <label style={labelStyle}>Tanggal Lahir</label>
-                <div style={{ position: "relative" }}>
+                <label style={labelStyle}>
+                  Tanggal Lahir
+                </label>
+
+                <div
+                  style={{
+                    position: "relative",
+                  }}
+                >
                   <input
                     type="text"
                     placeholder="DD/MM/YYYY"
                     value={form.tanggalLahir}
-                    onChange={handleChange("tanggalLahir")}
-                    style={{ ...inputStyle, paddingRight: "36px" }}
+                    onChange={handleChange(
+                      "tanggalLahir"
+                    )}
+                    style={{
+                      ...inputStyle,
+                      paddingRight: "36px",
+                    }}
                   />
+
                   <RiCalendarLine
                     size={16}
                     style={{
                       position: "absolute",
                       right: "12px",
                       top: "50%",
-                      transform: "translateY(-50%)",
+                      transform:
+                        "translateY(-50%)",
                       color: "#9CA3AF",
                     }}
                   />
                 </div>
+
                 {errors.tanggalLahir && (
-                  <div style={errorStyle}>{errors.tanggalLahir}</div>
+                  <div style={errorStyle}>
+                    {errors.tanggalLahir}
+                  </div>
                 )}
               </div>
 
-              {/* Roles */}
+              {/* ROLES */}
+
               <div style={{ marginBottom: "8px" }}>
-                <label style={labelStyle}>Roles</label>
+                <label style={labelStyle}>
+                  Roles
+                </label>
+
                 <select
                   value={form.roles}
                   onChange={handleChange("roles")}
-                  style={{ ...inputStyle, color: form.roles ? "#111827" : "#9CA3AF" }}
+                  style={{
+                    ...inputStyle,
+                    color: form.roles
+                      ? "#111827"
+                      : "#9CA3AF",
+                  }}
                 >
-                  <option value="">Pilih Role</option>
-                  <option value="Admin">Admin</option>
-                  <option value="Member">Member</option>
+                  <option value="">
+                    Pilih Role
+                  </option>
+
+                  <option value="Admin">
+                    Admin
+                  </option>
+
+                  <option value="Member">
+                    Member
+                  </option>
                 </select>
-                {errors.roles && <div style={errorStyle}>{errors.roles}</div>}
+
+                {errors.roles && (
+                  <div style={errorStyle}>
+                    {errors.roles}
+                  </div>
+                )}
               </div>
 
-              <div style={{ marginTop: "26px", display: "flex", justifyContent: "center", gap: "12px" }}>
+              {/* BUTTON */}
+
+              <div
+                style={{
+                  marginTop: "26px",
+                  display: "flex",
+                  justifyContent: "center",
+                  gap: "12px",
+                }}
+              >
                 <button
                   type="button"
-                  onClick={() => navigate("/Dashboard")}
+                  onClick={() =>
+                    navigate("/Dashboard")
+                  }
+                  disabled={saving}
                   style={{
                     padding: "12px 24px",
                     fontSize: "13px",
@@ -321,27 +604,40 @@ export default function EditUser() {
                     border: `1px solid ${BORDER}`,
                     background: "white",
                     color: "#6B7280",
-                    cursor: "pointer",
+                    cursor: saving
+                      ? "not-allowed"
+                      : "pointer",
                   }}
                 >
                   Batal
                 </button>
+
                 <button
                   type="submit"
+                  disabled={saving}
                   style={{
                     padding: "12px 32px",
                     fontSize: "13px",
                     fontWeight: 600,
                     borderRadius: "8px",
                     border: "none",
-                    background: isValid ? BLUE : GRAY_BTN,
+                    background:
+                      isValid && !saving
+                        ? BLUE
+                        : GRAY_BTN,
                     color: "white",
-                    cursor: "pointer",
+                    cursor:
+                      isValid && !saving
+                        ? "pointer"
+                        : "not-allowed",
                   }}
                 >
-                  SIMPAN PERUBAHAN
+                  {saving
+                    ? "MENYIMPAN..."
+                    : "SIMPAN PERUBAHAN"}
                 </button>
               </div>
+
             </form>
           </div>
         </div>
