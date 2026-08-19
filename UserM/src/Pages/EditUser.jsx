@@ -513,18 +513,6 @@ export default function EditUser() {
     >
       <div
         style={{
-          background: "#101B4C",
-          color: "white",
-          padding: "16px 28px",
-          fontSize: "16px",
-          fontWeight: 600,
-        }}
-      >
-        CRM For Education Binus
-      </div>
-
-      <div
-        style={{
           flex: 1,
           display: "flex",
           justifyContent: "center",
