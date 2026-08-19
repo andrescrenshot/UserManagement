@@ -16,7 +16,3 @@ db.bind(
 )
 
 
-print("DB_HOST =", config.DB_HOST)
-print("DB_PORT =", config.DB_PORT)
-print("DB_USER =", config.DB_USER)
-print("DB_NAME =", config.DB_NAME)
