@@ -1,3 +1,4 @@
+import os
 import falcon
 from waitress import serve
 
@@ -19,6 +20,7 @@ from entitas.edit_user.routes import (
 
 from util.cors_middleware import CORSMiddleware
 
+
 app = falcon.App(
     middleware=[
         CORSMiddleware()
@@ -37,6 +39,7 @@ register_tambah_user_routes(app)
 
 register_edit_user_routes(app)
 
+
 class StatusResource:
 
     def on_get(self, req, resp):
@@ -52,16 +55,19 @@ app.add_route(
     StatusResource()
 )
 
+
 if __name__ == "__main__":
+
+    port = int(os.environ.get("PORT", 9983))
 
     print("======================================")
     print("       USER MANAGEMENT BACKEND")
     print("======================================")
-    print("Server : http://127.0.0.1:9983")
+    print(f"Server : http://0.0.0.0:{port}")
     print("======================================")
 
     serve(
         app,
-        host="127.0.0.1",
-        port=9983
+        host="0.0.0.0",
+        port=port
     )
