@@ -1,7 +1,14 @@
+import os
 import bcrypt
+import jwt
+from datetime import datetime, timedelta, timezone
 from pony.orm import db_session
 
 from .model import User
+
+
+JWT_SECRET = os.environ.get("JWT_SECRET", "user-management-secret-key")
+JWT_ALGORITHM = "HS256"
 
 
 def user_to_dict(user):
@@ -15,6 +22,21 @@ def user_to_dict(user):
         "roles": user.roles,
         "status": user.status
     }
+
+
+def create_token(user):
+    payload = {
+        "id": user.id_user,
+        "email": user.email,
+        "roles": user.roles,
+        "exp": datetime.now(timezone.utc) + timedelta(hours=24)
+    }
+
+    return jwt.encode(
+        payload,
+        JWT_SECRET,
+        algorithm=JWT_ALGORITHM
+    )
 
 
 @db_session
@@ -76,4 +98,11 @@ def login_user(email, password):
     if not password_valid:
         return None
 
-    return user_to_dict(user)
+    user_data = user_to_dict(user)
+
+    token = create_token(user)
+
+    return {
+        "token": token,
+        "user": user_data
+    }

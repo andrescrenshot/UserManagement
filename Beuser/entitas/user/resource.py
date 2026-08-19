@@ -1,4 +1,3 @@
-import json
 import falcon
 
 from .services import register_user, login_user
@@ -133,12 +132,12 @@ class LoginResource:
                 }
                 return
 
-            user = login_user(
+            result = login_user(
                 email=email,
                 password=password
             )
 
-            if user is None:
+            if result is None:
                 resp.status = falcon.HTTP_401
                 resp.media = {
                     "success": False,
@@ -150,7 +149,8 @@ class LoginResource:
             resp.media = {
                 "success": True,
                 "message": "Login berhasil",
-                "user": user
+                "token": result["token"],
+                "user": result["user"]
             }
 
         except Exception as e:
