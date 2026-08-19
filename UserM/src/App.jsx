@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Layout from "./Component/Layout";
 import Login from "./Pages/Login";
 import Dashboard from "./Pages/Dashboard";
-import TambahUser from "./Pages/UserTambah";
+import TambahUser from "./Pages/TambahUser";
 import EditUser from "./Pages/EditUser";
 import Register from "./Pages/Register";
 import Profile from "./Pages/Profile";

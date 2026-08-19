@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import {
-  RiCalendarLine,
-} from "react-icons/ri";
+import { RiCalendarLine } from "react-icons/ri";
 import Swal from "sweetalert2";
 import {
   getUserApi,
@@ -164,7 +162,11 @@ export default function EditUser() {
           response?.user ||
           response;
 
-        if (!user || typeof user !== "object") {
+        if (
+          !user ||
+          typeof user !== "object" ||
+          Array.isArray(user)
+        ) {
           throw new Error(
             "Format data user dari backend tidak valid."
           );
@@ -379,7 +381,15 @@ export default function EditUser() {
       console.log("PAYLOAD:", payload);
       console.log("=================================");
 
-      await updateUserApi(id, payload);
+      const response = await updateUserApi(
+        id,
+        payload
+      );
+
+      console.log(
+        "RESPONSE UPDATE USER:",
+        response
+      );
 
       await Swal.fire({
         icon: "success",
@@ -414,8 +424,12 @@ export default function EditUser() {
             "Session login sudah tidak valid. Silakan login kembali.";
 
           localStorage.removeItem("token");
-          localStorage.removeItem("current_user");
-          localStorage.removeItem("isLoggedIn");
+          localStorage.removeItem(
+            "current_user"
+          );
+          localStorage.removeItem(
+            "isLoggedIn"
+          );
         }
 
         if (error.response.status === 404) {
@@ -547,7 +561,11 @@ export default function EditUser() {
             </h2>
 
             <form onSubmit={handleSubmit}>
-              <div style={{ marginBottom: "18px" }}>
+              <div
+                style={{
+                  marginBottom: "18px",
+                }}
+              >
                 <label style={labelStyle}>
                   Title
                 </label>
@@ -594,7 +612,11 @@ export default function EditUser() {
                 </div>
               </div>
 
-              <div style={{ marginBottom: "18px" }}>
+              <div
+                style={{
+                  marginBottom: "18px",
+                }}
+              >
                 <label style={labelStyle}>
                   Nama Lengkap
                 </label>
@@ -619,7 +641,11 @@ export default function EditUser() {
                 )}
               </div>
 
-              <div style={{ marginBottom: "18px" }}>
+              <div
+                style={{
+                  marginBottom: "18px",
+                }}
+              >
                 <label style={labelStyle}>
                   No. Handphone
                 </label>
@@ -634,14 +660,17 @@ export default function EditUser() {
                     style={{
                       display: "flex",
                       alignItems: "center",
+                      justifyContent: "center",
                       gap: "6px",
+                      width: "75px",
+                      height: "38px",
                       border: `1px solid ${BORDER}`,
                       borderRadius: "8px",
-                      padding: "0 12px",
                       fontSize: "14px",
                       color: "#374151",
                       background: "#F9FAFB",
                       whiteSpace: "nowrap",
+                      boxSizing: "border-box",
                     }}
                   >
                     🇮🇩 +62
@@ -670,7 +699,11 @@ export default function EditUser() {
                 )}
               </div>
 
-              <div style={{ marginBottom: "18px" }}>
+              <div
+                style={{
+                  marginBottom: "18px",
+                }}
+              >
                 <label style={labelStyle}>
                   Email
                 </label>
@@ -695,7 +728,11 @@ export default function EditUser() {
                 )}
               </div>
 
-              <div style={{ marginBottom: "18px" }}>
+              <div
+                style={{
+                  marginBottom: "18px",
+                }}
+              >
                 <label style={labelStyle}>
                   Tanggal Lahir
                 </label>
@@ -743,7 +780,11 @@ export default function EditUser() {
                 )}
               </div>
 
-              <div style={{ marginBottom: "8px" }}>
+              <div
+                style={{
+                  marginBottom: "8px",
+                }}
+              >
                 <label style={labelStyle}>
                   Roles
                 </label>
@@ -813,7 +854,9 @@ export default function EditUser() {
 
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={
+                    saving || !isValid
+                  }
                   style={{
                     padding: "12px 32px",
                     fontSize: "13px",
@@ -824,7 +867,7 @@ export default function EditUser() {
                       isValid && !saving
                         ? BLUE
                         : GRAY_BTN,
-                    color: "white", 
+                    color: "white",
                     cursor:
                       isValid && !saving
                         ? "pointer"

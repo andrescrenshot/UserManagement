@@ -47,9 +47,6 @@ const errorStyle = {
   marginTop: "4px",
 };
 
-const PASSWORD_RULE =
-  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
-
 const EMAIL_RULE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const titleMap = {
@@ -68,47 +65,43 @@ export default function TambahUser() {
     useState(false);
   const [loading, setLoading] = useState(false);
 
-  // =========================
-  // HANDLE CHANGE
-  // =========================
-
   const handleChange = (field) => (e) => {
-    setForm({
-      ...form,
-      [field]: e.target.value,
-    });
+    const value = e.target.value;
 
-    if (errors[field]) {
-      setErrors({
-        ...errors,
-        [field]: "",
-      });
-    }
+    setForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+
+    setErrors((prev) => ({
+      ...prev,
+      [field]: "",
+    }));
   };
-
-  // =========================
-  // HANDLE PHONE
-  // =========================
 
   const handlePhoneChange = (e) => {
-    const digitsOnly = e.target.value.replace(/[^0-9]/g, "");
+    let digitsOnly = e.target.value.replace(/[^0-9]/g, "");
 
-    setForm({
-      ...form,
-      noHp: digitsOnly,
-    });
-
-    if (errors.noHp) {
-      setErrors({
-        ...errors,
-        noHp: "",
-      });
+    if (digitsOnly.startsWith("62")) {
+      digitsOnly = digitsOnly.substring(2);
     }
-  };
 
-  // =========================
-  // VALIDATION
-  // =========================
+    if (digitsOnly.startsWith("0")) {
+      digitsOnly = digitsOnly.substring(1);
+    }
+
+    digitsOnly = digitsOnly.substring(0, 13);
+
+    setForm((prev) => ({
+      ...prev,
+      noHp: digitsOnly,
+    }));
+
+    setErrors((prev) => ({
+      ...prev,
+      noHp: "",
+    }));
+  };
 
   const validate = () => {
     const newErrors = {};
@@ -119,29 +112,31 @@ export default function TambahUser() {
 
     if (!form.noHp) {
       newErrors.noHp = "No. handphone wajib diisi";
-    } else if (("62" + form.noHp).length > 15) {
-      newErrors.noHp =
-        "Maksimum terdiri dari 15 angka termasuk kode negara";
+    } else if (form.noHp.length < 9) {
+      newErrors.noHp = "Nomor handphone tidak valid";
+    } else if (form.noHp.length > 13) {
+      newErrors.noHp = "Nomor handphone terlalu panjang";
     }
 
-    if (!form.email) {
+    if (!form.email.trim()) {
       newErrors.email = "Email wajib diisi";
-    } else if (!EMAIL_RULE.test(form.email)) {
+    } else if (!EMAIL_RULE.test(form.email.trim())) {
       newErrors.email = "Masukkan email yang valid";
     }
 
     if (!form.tanggalLahir) {
-      newErrors.tanggalLahir =
-        "Tanggal lahir wajib diisi";
+      newErrors.tanggalLahir = "Tanggal lahir wajib diisi";
     }
 
     if (!form.roles) {
       newErrors.roles = "Pilih role terlebih dahulu";
     }
 
-    if (!PASSWORD_RULE.test(form.password)) {
+    if (!form.password) {
+      newErrors.password = "Kata sandi wajib diisi";
+    } else if (form.password.length < 8) {
       newErrors.password =
-        "Min 8 karakter, kombinasi huruf besar-kecil, angka & karakter khusus";
+        "Kata sandi minimal 8 karakter";
     }
 
     if (!form.confirmPassword) {
@@ -158,11 +153,14 @@ export default function TambahUser() {
   };
 
   const isValid =
-    Object.keys(validate()).length === 0;
-
-  // =========================
-  // SUBMIT
-  // =========================
+    form.nama.trim() !== "" &&
+    form.noHp.length >= 9 &&
+    form.noHp.length <= 13 &&
+    EMAIL_RULE.test(form.email.trim()) &&
+    form.tanggalLahir !== "" &&
+    form.roles !== "" &&
+    form.password.length >= 8 &&
+    form.confirmPassword === form.password;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -172,10 +170,10 @@ export default function TambahUser() {
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length > 0) {
-      Swal.fire({
-        icon: "error",
-        title: "Ups, gagal!",
-        text: "Pastikan memasukkan data yang benar. Coba lagi!",
+      await Swal.fire({
+        icon: "warning",
+        title: "Data belum lengkap",
+        text: "Pastikan semua data sudah diisi dengan benar.",
         confirmButtonColor: BLUE,
       });
 
@@ -189,23 +187,17 @@ export default function TambahUser() {
         title: titleMap[form.title],
         nama: form.nama.trim(),
         noHp: form.noHp,
-        email: form.email.trim(),
+        email: form.email.trim().toLowerCase(),
         tanggalLahir: form.tanggalLahir,
         roles: form.roles,
         password: form.password,
       };
 
-      console.log(
-        "DATA TAMBAH USER:",
-        payload
-      );
+      console.log("DATA TAMBAH USER:", payload);
 
       const response = await createUserApi(payload);
 
-      console.log(
-        "RESPONSE BACKEND:",
-        response.data
-      );
+      console.log("RESPONSE BACKEND:", response);
 
       if (response.success) {
         await Swal.fire({
@@ -217,7 +209,7 @@ export default function TambahUser() {
 
         navigate("/Dashboard");
       } else {
-        Swal.fire({
+        await Swal.fire({
           icon: "error",
           title: "Gagal!",
           text:
@@ -227,19 +219,19 @@ export default function TambahUser() {
         });
       }
     } catch (error) {
-      console.error(
-        "ERROR TAMBAH USER:",
-        error
-      );
+      console.error("ERROR TAMBAH USER:", error);
 
       let message =
-        "Gagal terhubung ke backend.";
+        error?.message ||
+        "Backend tidak dapat dihubungi.";
 
-      message =
-        error.message ||
-        "Backend tidak dapat dihubungi. Pastikan server Python sedang berjalan.";
+      if (error?.status === 409) {
+        message =
+          error?.response?.message ||
+          "Email sudah terdaftar.";
+      }
 
-      Swal.fire({
+      await Swal.fire({
         icon: "error",
         title: "Gagal!",
         text: message,
@@ -260,8 +252,6 @@ export default function TambahUser() {
         width: "100%",
       }}
     >
-      {/* HEADER */}
-
       <div
         style={{
           background: "#101B4C",
@@ -273,8 +263,6 @@ export default function TambahUser() {
       >
         CRM For Education Binus
       </div>
-
-      {/* CONTENT */}
 
       <div
         style={{
@@ -314,14 +302,7 @@ export default function TambahUser() {
             </h2>
 
             <form onSubmit={handleSubmit}>
-
-              {/* TITLE */}
-
-              <div
-                style={{
-                  marginBottom: "18px",
-                }}
-              >
+              <div style={{ marginBottom: "18px" }}>
                 <label style={labelStyle}>
                   Title
                 </label>
@@ -343,10 +324,9 @@ export default function TambahUser() {
                         display: "flex",
                         alignItems: "center",
                         gap: "6px",
-                        fontSize: "16px",
+                        fontSize: "14px",
                         color: "#374151",
                         cursor: "pointer",
-                        fontWeight: "300",
                       }}
                     >
                       <input
@@ -356,10 +336,10 @@ export default function TambahUser() {
                           form.title === opt
                         }
                         onChange={() =>
-                          setForm({
-                            ...form,
+                          setForm((prev) => ({
+                            ...prev,
                             title: opt,
-                          })
+                          }))
                         }
                       />
 
@@ -369,13 +349,7 @@ export default function TambahUser() {
                 </div>
               </div>
 
-              {/* NAMA LENGKAP */}
-
-              <div
-                style={{
-                  marginBottom: "18px",
-                }}
-              >
+              <div style={{ marginBottom: "18px" }}>
                 <label style={labelStyle}>
                   Nama Lengkap
                 </label>
@@ -385,7 +359,12 @@ export default function TambahUser() {
                   placeholder="Masukkan Nama Lengkap"
                   value={form.nama}
                   onChange={handleChange("nama")}
-                  style={inputStyle}
+                  style={{
+                    ...inputStyle,
+                    borderColor: errors.nama
+                      ? "#DC2626"
+                      : BORDER,
+                  }}
                 />
 
                 {errors.nama && (
@@ -395,13 +374,7 @@ export default function TambahUser() {
                 )}
               </div>
 
-              {/* NO HP */}
-
-              <div
-                style={{
-                  marginBottom: "18px",
-                }}
-              >
+              <div style={{ marginBottom: "18px" }}>
                 <label style={labelStyle}>
                   No. Handphone
                 </label>
@@ -415,9 +388,8 @@ export default function TambahUser() {
                   <div
                     style={{
                       width: "75px",
-                      height: "38px",
-                      border:
-                        "1px solid #D0D5DD",
+                      height: "42px",
+                      border: `1px solid ${BORDER}`,
                       borderRadius: "8px",
                       backgroundColor: "#F9FAFB",
                       display: "flex",
@@ -447,8 +419,6 @@ export default function TambahUser() {
                         fontSize: "14px",
                         fontWeight: 500,
                         color: "#344054",
-                        lineHeight: "14px",
-                        margin: 0,
                       }}
                     >
                       +62
@@ -458,12 +428,15 @@ export default function TambahUser() {
                   <input
                     type="text"
                     inputMode="numeric"
-                    placeholder="Cth: 812-xxxx-xxxx"
+                    placeholder="812xxxxxxxx"
                     value={form.noHp}
                     onChange={handlePhoneChange}
                     style={{
                       ...inputStyle,
                       flex: 1,
+                      borderColor: errors.noHp
+                        ? "#DC2626"
+                        : BORDER,
                     }}
                   />
                 </div>
@@ -475,13 +448,7 @@ export default function TambahUser() {
                 )}
               </div>
 
-              {/* EMAIL */}
-
-              <div
-                style={{
-                  marginBottom: "18px",
-                }}
-              >
+              <div style={{ marginBottom: "18px" }}>
                 <label style={labelStyle}>
                   Email
                 </label>
@@ -491,7 +458,12 @@ export default function TambahUser() {
                   placeholder="Misal: nama@email.com"
                   value={form.email}
                   onChange={handleChange("email")}
-                  style={inputStyle}
+                  style={{
+                    ...inputStyle,
+                    borderColor: errors.email
+                      ? "#DC2626"
+                      : BORDER,
+                  }}
                 />
 
                 {errors.email && (
@@ -501,13 +473,7 @@ export default function TambahUser() {
                 )}
               </div>
 
-              {/* TANGGAL LAHIR */}
-
-              <div
-                style={{
-                  marginBottom: "18px",
-                }}
-              >
+              <div style={{ marginBottom: "18px" }}>
                 <label style={labelStyle}>
                   Tanggal Lahir
                 </label>
@@ -518,27 +484,32 @@ export default function TambahUser() {
                   }}
                 >
                   <input
-                    type="text"
-                    placeholder="DD/MM/YYYY"
+                    type="date"
                     value={form.tanggalLahir}
                     onChange={handleChange(
                       "tanggalLahir"
                     )}
                     style={{
                       ...inputStyle,
-                      paddingRight: "36px",
+                      paddingRight: "42px",
+                      borderColor:
+                        errors.tanggalLahir
+                          ? "#DC2626"
+                          : BORDER,
+                      cursor: "pointer",
                     }}
                   />
 
                   <RiCalendarLine
-                    size={16}
+                    size={18}
                     style={{
                       position: "absolute",
                       right: "12px",
                       top: "50%",
                       transform:
                         "translateY(-50%)",
-                      color: "#9CA3AF",
+                      color: "#6B7280",
+                      pointerEvents: "none",
                     }}
                   />
                 </div>
@@ -550,27 +521,23 @@ export default function TambahUser() {
                 )}
               </div>
 
-              {/* ROLES */}
-
-              <div
-                style={{
-                  marginBottom: "24px",
-                }}
-              >
+              <div style={{ marginBottom: "24px" }}>
                 <label style={labelStyle}>
                   Roles
                 </label>
 
                 <select
                   value={form.roles}
-                  onChange={handleChange(
-                    "roles"
-                  )}
+                  onChange={handleChange("roles")}
                   style={{
                     ...inputStyle,
                     color: form.roles
                       ? "#111827"
                       : "#9CA3AF",
+                    borderColor: errors.roles
+                      ? "#DC2626"
+                      : BORDER,
+                    cursor: "pointer",
                   }}
                 >
                   <option value="">
@@ -593,24 +560,14 @@ export default function TambahUser() {
                 )}
               </div>
 
-              {/* SEPARATOR */}
-
               <div
                 style={{
-                  borderTop:
-                    `1px solid ${BORDER}`,
-                  margin:
-                    "10px 0 18px",
+                  borderTop: `1px solid ${BORDER}`,
+                  margin: "10px 0 18px",
                 }}
               />
 
-              {/* PASSWORD */}
-
-              <div
-                style={{
-                  marginBottom: "18px",
-                }}
-              >
+              <div style={{ marginBottom: "18px" }}>
                 <label style={labelStyle}>
                   Kata Sandi
                 </label>
@@ -626,7 +583,7 @@ export default function TambahUser() {
                         ? "text"
                         : "password"
                     }
-                    placeholder="Masukkan Kata Sandi"
+                    placeholder="Minimal 8 karakter"
                     value={form.password}
                     onChange={handleChange(
                       "password"
@@ -634,6 +591,9 @@ export default function TambahUser() {
                     style={{
                       ...inputStyle,
                       paddingRight: "40px",
+                      borderColor: errors.password
+                        ? "#DC2626"
+                        : BORDER,
                     }}
                   />
 
@@ -679,13 +639,7 @@ export default function TambahUser() {
                 )}
               </div>
 
-              {/* KONFIRMASI PASSWORD */}
-
-              <div
-                style={{
-                  marginBottom: "26px",
-                }}
-              >
+              <div style={{ marginBottom: "26px" }}>
                 <label style={labelStyle}>
                   Konfirmasi Kata Sandi
                 </label>
@@ -701,16 +655,18 @@ export default function TambahUser() {
                         ? "text"
                         : "password"
                     }
-                    placeholder="Masukkan Ulang Kata Sandi"
-                    value={
-                      form.confirmPassword
-                    }
+                    placeholder="Masukkan ulang kata sandi"
+                    value={form.confirmPassword}
                     onChange={handleChange(
                       "confirmPassword"
                     )}
                     style={{
                       ...inputStyle,
                       paddingRight: "40px",
+                      borderColor:
+                        errors.confirmPassword
+                          ? "#DC2626"
+                          : BORDER,
                     }}
                   />
 
@@ -760,8 +716,6 @@ export default function TambahUser() {
                 )}
               </div>
 
-              {/* BUTTON */}
-
               <div
                 style={{
                   display: "flex",
@@ -776,12 +730,10 @@ export default function TambahUser() {
                     navigate("/Dashboard")
                   }
                   style={{
-                    padding:
-                      "12px 24px",
+                    padding: "12px 24px",
                     fontSize: "13px",
                     borderRadius: "8px",
-                    border:
-                      `1px solid ${BORDER}`,
+                    border: `1px solid ${BORDER}`,
                     background: "white",
                     color: "#6B7280",
                     cursor: loading
@@ -796,19 +748,20 @@ export default function TambahUser() {
                   type="submit"
                   disabled={loading}
                   style={{
-                    padding:
-                      "12px 32px",
+                    padding: "12px 32px",
                     fontSize: "13px",
                     fontWeight: 600,
                     borderRadius: "8px",
                     border: "none",
-                    background: isValid
-                      ? BLUE
-                      : GRAY_BTN,
+                    background:
+                      isValid && !loading
+                        ? BLUE
+                        : GRAY_BTN,
                     color: "white",
-                    cursor: loading
-                      ? "not-allowed"
-                      : "pointer",
+                    cursor:
+                      isValid && !loading
+                        ? "pointer"
+                        : "not-allowed",
                   }}
                 >
                   {loading
@@ -816,7 +769,6 @@ export default function TambahUser() {
                     : "SIMPAN DATA"}
                 </button>
               </div>
-
             </form>
           </div>
         </div>
