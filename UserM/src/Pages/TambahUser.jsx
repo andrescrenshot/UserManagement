@@ -6,7 +6,7 @@ import {
   RiEyeOffLine,
 } from "react-icons/ri";
 import Swal from "sweetalert2";
-import { createUserApi } from "./userApi";
+import { createUserApi } from "../api/userApi";
 
 const BLUE = "#1226C4";
 const GRAY_BTN = "#C7CCD6";
