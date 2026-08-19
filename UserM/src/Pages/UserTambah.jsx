@@ -12,7 +12,9 @@ const BLUE = "#1226C4";
 const GRAY_BTN = "#C7CCD6";
 const BORDER = "#E5E7EB";
 
-const API_USER = "http://127.0.0.1:9983/api/tambah-user";
+const API_URL = import.meta.env.VITE_API_URL;
+
+const API_USER = `${API_URL}/api/tambah-user`;
 
 const emptyForm = {
   title: "Nona",
@@ -64,72 +66,78 @@ export default function TambahUser() {
   const navigate = useNavigate();
 
   const [form, setForm] = useState(emptyForm);
+
   const [errors, setErrors] = useState({});
-  const [showPassword, setShowPassword] = useState(false);
+
+  const [showPassword, setShowPassword] =
+    useState(false);
+
   const [showConfirmPassword, setShowConfirmPassword] =
     useState(false);
+
   const [loading, setLoading] = useState(false);
 
-  // =========================
-  // HANDLE CHANGE
-  // =========================
-
   const handleChange = (field) => (e) => {
-    setForm({
-      ...form,
-      [field]: e.target.value,
-    });
+    const value = e.target.value;
 
-    if (errors[field]) {
-      setErrors({
-        ...errors,
-        [field]: "",
-      });
-    }
+    setForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+
+    setErrors((prev) => ({
+      ...prev,
+      [field]: "",
+    }));
   };
-
-  // =========================
-  // HANDLE PHONE
-  // =========================
 
   const handlePhoneChange = (e) => {
-    const digitsOnly = e.target.value.replace(/[^0-9]/g, "");
+    const digitsOnly = e.target.value.replace(
+      /[^0-9]/g,
+      ""
+    );
 
-    setForm({
-      ...form,
+    setForm((prev) => ({
+      ...prev,
       noHp: digitsOnly,
-    });
+    }));
 
-    if (errors.noHp) {
-      setErrors({
-        ...errors,
-        noHp: "",
-      });
-    }
+    setErrors((prev) => ({
+      ...prev,
+      noHp: "",
+    }));
   };
-
-  // =========================
-  // VALIDATION
-  // =========================
 
   const validate = () => {
     const newErrors = {};
 
     if (!form.nama.trim()) {
-      newErrors.nama = "Nama lengkap wajib diisi";
+      newErrors.nama =
+        "Nama lengkap wajib diisi";
+    } else if (form.nama.trim().length < 3) {
+      newErrors.nama =
+        "Nama minimal 3 karakter";
     }
 
     if (!form.noHp) {
-      newErrors.noHp = "No. handphone wajib diisi";
+      newErrors.noHp =
+        "No. handphone wajib diisi";
+    } else if (form.noHp.length < 9) {
+      newErrors.noHp =
+        "Nomor handphone tidak valid";
     } else if (("62" + form.noHp).length > 15) {
       newErrors.noHp =
         "Maksimum terdiri dari 15 angka termasuk kode negara";
     }
 
-    if (!form.email) {
-      newErrors.email = "Email wajib diisi";
-    } else if (!EMAIL_RULE.test(form.email)) {
-      newErrors.email = "Masukkan email yang valid";
+    if (!form.email.trim()) {
+      newErrors.email =
+        "Email wajib diisi";
+    } else if (
+      !EMAIL_RULE.test(form.email.trim())
+    ) {
+      newErrors.email =
+        "Masukkan email yang valid";
     }
 
     if (!form.tanggalLahir) {
@@ -138,10 +146,14 @@ export default function TambahUser() {
     }
 
     if (!form.roles) {
-      newErrors.roles = "Pilih role terlebih dahulu";
+      newErrors.roles =
+        "Pilih role terlebih dahulu";
     }
 
-    if (!PASSWORD_RULE.test(form.password)) {
+    if (!form.password) {
+      newErrors.password =
+        "Kata sandi wajib diisi";
+    } else if (!PASSWORD_RULE.test(form.password)) {
       newErrors.password =
         "Min 8 karakter, kombinasi huruf besar-kecil, angka & karakter khusus";
     }
@@ -160,11 +172,13 @@ export default function TambahUser() {
   };
 
   const isValid =
-    Object.keys(validate()).length === 0;
-
-  // =========================
-  // SUBMIT
-  // =========================
+    form.nama.trim() &&
+    form.noHp &&
+    form.email.trim() &&
+    form.tanggalLahir &&
+    form.roles &&
+    PASSWORD_RULE.test(form.password) &&
+    form.confirmPassword === form.password;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -174,10 +188,21 @@ export default function TambahUser() {
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length > 0) {
-      Swal.fire({
+      await Swal.fire({
+        icon: "warning",
+        title: "Data belum lengkap",
+        text: "Pastikan semua data sudah diisi dengan benar.",
+        confirmButtonColor: BLUE,
+      });
+
+      return;
+    }
+
+    if (!API_URL) {
+      await Swal.fire({
         icon: "error",
-        title: "Ups, gagal!",
-        text: "Pastikan memasukkan data yang benar. Coba lagi!",
+        title: "Konfigurasi Error",
+        text: "VITE_API_URL belum dikonfigurasi. Periksa Environment Variable di Vercel.",
         confirmButtonColor: BLUE,
       });
 
@@ -186,6 +211,9 @@ export default function TambahUser() {
 
     try {
       setLoading(true);
+
+      const token =
+        localStorage.getItem("token");
 
       const payload = {
         title: titleMap[form.title],
@@ -198,6 +226,11 @@ export default function TambahUser() {
       };
 
       console.log(
+        "API TAMBAH USER:",
+        API_USER
+      );
+
+      console.log(
         "DATA TAMBAH USER:",
         payload
       );
@@ -207,7 +240,13 @@ export default function TambahUser() {
         payload,
         {
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
+            ...(token
+              ? {
+                  Authorization: `Bearer ${token}`,
+                }
+              : {}),
           },
         }
       );
@@ -217,25 +256,37 @@ export default function TambahUser() {
         response.data
       );
 
-      if (response.data.success) {
+      const data = response.data;
+
+      const success =
+        data?.success === true ||
+        data?.status === true ||
+        response.status === 200 ||
+        response.status === 201;
+
+      if (success) {
         await Swal.fire({
           icon: "success",
           title: "Berhasil!",
-          text: "User baru berhasil ditambahkan.",
+          text:
+            data?.message ||
+            "User baru berhasil ditambahkan.",
           confirmButtonColor: BLUE,
         });
 
         navigate("/Dashboard");
-      } else {
-        Swal.fire({
-          icon: "error",
-          title: "Gagal!",
-          text:
-            response.data.message ||
-            "User gagal ditambahkan.",
-          confirmButtonColor: BLUE,
-        });
+        return;
       }
+
+      await Swal.fire({
+        icon: "error",
+        title: "Gagal!",
+        text:
+          data?.message ||
+          data?.error ||
+          "User gagal ditambahkan.",
+        confirmButtonColor: BLUE,
+      });
     } catch (error) {
       console.error(
         "ERROR TAMBAH USER:",
@@ -246,17 +297,43 @@ export default function TambahUser() {
         "Gagal terhubung ke backend.";
 
       if (error.response) {
+        const responseData =
+          error.response.data;
+
         message =
-          error.response.data?.message ||
+          responseData?.message ||
+          responseData?.error ||
           `Server error (${error.response.status})`;
+
+        if (
+          error.response.status === 401
+        ) {
+          message =
+            "Sesi login sudah tidak valid. Silakan login kembali.";
+        }
+
+        if (
+          error.response.status === 403
+        ) {
+          message =
+            "Anda tidak memiliki izin untuk menambahkan user.";
+        }
+
+        if (
+          error.response.status === 404
+        ) {
+          message =
+            "Endpoint tambah user tidak ditemukan di backend.";
+        }
       } else if (error.request) {
         message =
-          "Backend tidak dapat dihubungi. Pastikan server Python sedang berjalan.";
+          "Backend tidak dapat dihubungi. Pastikan Railway sedang aktif dan VITE_API_URL sudah benar.";
       } else {
-        message = error.message;
+        message =
+          error.message;
       }
 
-      Swal.fire({
+      await Swal.fire({
         icon: "error",
         title: "Gagal!",
         text: message,
@@ -277,8 +354,6 @@ export default function TambahUser() {
         width: "100%",
       }}
     >
-      {/* HEADER */}
-
       <div
         style={{
           background: "#101B4C",
@@ -290,8 +365,6 @@ export default function TambahUser() {
       >
         CRM For Education Binus
       </div>
-
-      {/* CONTENT */}
 
       <div
         style={{
@@ -331,9 +404,6 @@ export default function TambahUser() {
             </h2>
 
             <form onSubmit={handleSubmit}>
-
-              {/* TITLE */}
-
               <div
                 style={{
                   marginBottom: "18px",
@@ -373,10 +443,10 @@ export default function TambahUser() {
                           form.title === opt
                         }
                         onChange={() =>
-                          setForm({
-                            ...form,
+                          setForm((prev) => ({
+                            ...prev,
                             title: opt,
-                          })
+                          }))
                         }
                       />
 
@@ -385,8 +455,6 @@ export default function TambahUser() {
                   ))}
                 </div>
               </div>
-
-              {/* NAMA LENGKAP */}
 
               <div
                 style={{
@@ -401,8 +469,15 @@ export default function TambahUser() {
                   type="text"
                   placeholder="Masukkan Nama Lengkap"
                   value={form.nama}
-                  onChange={handleChange("nama")}
-                  style={inputStyle}
+                  onChange={handleChange(
+                    "nama"
+                  )}
+                  style={{
+                    ...inputStyle,
+                    borderColor: errors.nama
+                      ? "#DC2626"
+                      : BORDER,
+                  }}
                 />
 
                 {errors.nama && (
@@ -411,8 +486,6 @@ export default function TambahUser() {
                   </div>
                 )}
               </div>
-
-              {/* NO HP */}
 
               <div
                 style={{
@@ -438,11 +511,13 @@ export default function TambahUser() {
                       borderRadius: "8px",
                       backgroundColor: "#F9FAFB",
                       display: "flex",
-                      justifyContent: "center",
+                      justifyContent:
+                        "center",
                       alignItems: "center",
                       gap: "6px",
                       padding: "0 8px",
-                      boxSizing: "border-box",
+                      boxSizing:
+                        "border-box",
                       flexShrink: 0,
                     }}
                   >
@@ -477,10 +552,16 @@ export default function TambahUser() {
                     inputMode="numeric"
                     placeholder="Cth: 812-xxxx-xxxx"
                     value={form.noHp}
-                    onChange={handlePhoneChange}
+                    onChange={
+                      handlePhoneChange
+                    }
                     style={{
                       ...inputStyle,
                       flex: 1,
+                      borderColor:
+                        errors.noHp
+                          ? "#DC2626"
+                          : BORDER,
                     }}
                   />
                 </div>
@@ -491,8 +572,6 @@ export default function TambahUser() {
                   </div>
                 )}
               </div>
-
-              {/* EMAIL */}
 
               <div
                 style={{
@@ -507,8 +586,16 @@ export default function TambahUser() {
                   type="email"
                   placeholder="Misal: nama@email.com"
                   value={form.email}
-                  onChange={handleChange("email")}
-                  style={inputStyle}
+                  onChange={handleChange(
+                    "email"
+                  )}
+                  style={{
+                    ...inputStyle,
+                    borderColor:
+                      errors.email
+                        ? "#DC2626"
+                        : BORDER,
+                  }}
                 />
 
                 {errors.email && (
@@ -517,8 +604,6 @@ export default function TambahUser() {
                   </div>
                 )}
               </div>
-
-              {/* TANGGAL LAHIR */}
 
               <div
                 style={{
@@ -535,39 +620,48 @@ export default function TambahUser() {
                   }}
                 >
                   <input
-                    type="text"
-                    placeholder="DD/MM/YYYY"
-                    value={form.tanggalLahir}
+                    type="date"
+                    value={
+                      form.tanggalLahir
+                    }
                     onChange={handleChange(
                       "tanggalLahir"
                     )}
                     style={{
                       ...inputStyle,
-                      paddingRight: "36px",
+                      paddingRight:
+                        "36px",
+                      borderColor:
+                        errors.tanggalLahir
+                          ? "#DC2626"
+                          : BORDER,
                     }}
                   />
 
                   <RiCalendarLine
                     size={16}
                     style={{
-                      position: "absolute",
+                      position:
+                        "absolute",
                       right: "12px",
                       top: "50%",
                       transform:
                         "translateY(-50%)",
                       color: "#9CA3AF",
+                      pointerEvents:
+                        "none",
                     }}
                   />
                 </div>
 
                 {errors.tanggalLahir && (
                   <div style={errorStyle}>
-                    {errors.tanggalLahir}
+                    {
+                      errors.tanggalLahir
+                    }
                   </div>
                 )}
               </div>
-
-              {/* ROLES */}
 
               <div
                 style={{
@@ -588,6 +682,10 @@ export default function TambahUser() {
                     color: form.roles
                       ? "#111827"
                       : "#9CA3AF",
+                    borderColor:
+                      errors.roles
+                        ? "#DC2626"
+                        : BORDER,
                   }}
                 >
                   <option value="">
@@ -610,8 +708,6 @@ export default function TambahUser() {
                 )}
               </div>
 
-              {/* SEPARATOR */}
-
               <div
                 style={{
                   borderTop:
@@ -620,8 +716,6 @@ export default function TambahUser() {
                     "10px 0 18px",
                 }}
               />
-
-              {/* PASSWORD */}
 
               <div
                 style={{
@@ -634,7 +728,8 @@ export default function TambahUser() {
 
                 <div
                   style={{
-                    position: "relative",
+                    position:
+                      "relative",
                   }}
                 >
                   <input
@@ -644,13 +739,20 @@ export default function TambahUser() {
                         : "password"
                     }
                     placeholder="Masukkan Kata Sandi"
-                    value={form.password}
+                    value={
+                      form.password
+                    }
                     onChange={handleChange(
                       "password"
                     )}
                     style={{
                       ...inputStyle,
-                      paddingRight: "40px",
+                      paddingRight:
+                        "40px",
+                      borderColor:
+                        errors.password
+                          ? "#DC2626"
+                          : BORDER,
                     }}
                   />
 
@@ -658,32 +760,42 @@ export default function TambahUser() {
                     <RiEyeOffLine
                       size={18}
                       style={{
-                        position: "absolute",
+                        position:
+                          "absolute",
                         right: "12px",
                         top: "50%",
                         transform:
                           "translateY(-50%)",
-                        color: "#9CA3AF",
-                        cursor: "pointer",
+                        color:
+                          "#9CA3AF",
+                        cursor:
+                          "pointer",
                       }}
                       onClick={() =>
-                        setShowPassword(false)
+                        setShowPassword(
+                          false
+                        )
                       }
                     />
                   ) : (
                     <RiEyeLine
                       size={18}
                       style={{
-                        position: "absolute",
+                        position:
+                          "absolute",
                         right: "12px",
                         top: "50%",
                         transform:
                           "translateY(-50%)",
-                        color: "#9CA3AF",
-                        cursor: "pointer",
+                        color:
+                          "#9CA3AF",
+                        cursor:
+                          "pointer",
                       }}
                       onClick={() =>
-                        setShowPassword(true)
+                        setShowPassword(
+                          true
+                        )
                       }
                     />
                   )}
@@ -696,8 +808,6 @@ export default function TambahUser() {
                 )}
               </div>
 
-              {/* KONFIRMASI PASSWORD */}
-
               <div
                 style={{
                   marginBottom: "26px",
@@ -709,7 +819,8 @@ export default function TambahUser() {
 
                 <div
                   style={{
-                    position: "relative",
+                    position:
+                      "relative",
                   }}
                 >
                   <input
@@ -727,7 +838,12 @@ export default function TambahUser() {
                     )}
                     style={{
                       ...inputStyle,
-                      paddingRight: "40px",
+                      paddingRight:
+                        "40px",
+                      borderColor:
+                        errors.confirmPassword
+                          ? "#DC2626"
+                          : BORDER,
                     }}
                   />
 
@@ -735,13 +851,16 @@ export default function TambahUser() {
                     <RiEyeOffLine
                       size={18}
                       style={{
-                        position: "absolute",
+                        position:
+                          "absolute",
                         right: "12px",
                         top: "50%",
                         transform:
                           "translateY(-50%)",
-                        color: "#9CA3AF",
-                        cursor: "pointer",
+                        color:
+                          "#9CA3AF",
+                        cursor:
+                          "pointer",
                       }}
                       onClick={() =>
                         setShowConfirmPassword(
@@ -753,13 +872,16 @@ export default function TambahUser() {
                     <RiEyeLine
                       size={18}
                       style={{
-                        position: "absolute",
+                        position:
+                          "absolute",
                         right: "12px",
                         top: "50%",
                         transform:
                           "translateY(-50%)",
-                        color: "#9CA3AF",
-                        cursor: "pointer",
+                        color:
+                          "#9CA3AF",
+                        cursor:
+                          "pointer",
                       }}
                       onClick={() =>
                         setShowConfirmPassword(
@@ -772,17 +894,18 @@ export default function TambahUser() {
 
                 {errors.confirmPassword && (
                   <div style={errorStyle}>
-                    {errors.confirmPassword}
+                    {
+                      errors.confirmPassword
+                    }
                   </div>
                 )}
               </div>
 
-              {/* BUTTON */}
-
               <div
                 style={{
                   display: "flex",
-                  justifyContent: "center",
+                  justifyContent:
+                    "center",
                   gap: "12px",
                 }}
               >
@@ -790,7 +913,9 @@ export default function TambahUser() {
                   type="button"
                   disabled={loading}
                   onClick={() =>
-                    navigate("/Dashboard")
+                    navigate(
+                      "/Dashboard"
+                    )
                   }
                   style={{
                     padding:
@@ -799,8 +924,10 @@ export default function TambahUser() {
                     borderRadius: "8px",
                     border:
                       `1px solid ${BORDER}`,
-                    background: "white",
-                    color: "#6B7280",
+                    background:
+                      "white",
+                    color:
+                      "#6B7280",
                     cursor: loading
                       ? "not-allowed"
                       : "pointer",
@@ -811,7 +938,10 @@ export default function TambahUser() {
 
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={
+                    loading ||
+                    !isValid
+                  }
                   style={{
                     padding:
                       "12px 32px",
@@ -819,13 +949,17 @@ export default function TambahUser() {
                     fontWeight: 600,
                     borderRadius: "8px",
                     border: "none",
-                    background: isValid
-                      ? BLUE
-                      : GRAY_BTN,
+                    background:
+                      isValid &&
+                      !loading
+                        ? BLUE
+                        : GRAY_BTN,
                     color: "white",
-                    cursor: loading
-                      ? "not-allowed"
-                      : "pointer",
+                    cursor:
+                      loading ||
+                      !isValid
+                        ? "not-allowed"
+                        : "pointer",
                   }}
                 >
                   {loading
@@ -833,7 +967,6 @@ export default function TambahUser() {
                     : "SIMPAN DATA"}
                 </button>
               </div>
-
             </form>
           </div>
         </div>

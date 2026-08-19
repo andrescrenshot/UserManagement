@@ -1,4 +1,4 @@
-const API_URL = "http://127.0.0.1:9983";
+const API_URL = "https://usermanagement-production-f2c5.up.railway.app";
 
 const getToken = () => localStorage.getItem("token");
 

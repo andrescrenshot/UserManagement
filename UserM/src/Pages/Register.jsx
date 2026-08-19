@@ -4,7 +4,7 @@ import Swal from "sweetalert2";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const API_URL = "http://127.0.0.1:9983";
+const API_URL = import.meta.env.VITE_API_URL;
 
 export default function Register() {
   const navigate = useNavigate();
@@ -29,11 +29,20 @@ export default function Register() {
     confirmPassword: "",
   });
 
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+  const [showPassword, setShowPassword] =
+    useState(false);
+
+  const [showConfirmPassword, setShowConfirmPassword] =
+    useState(false);
+
+  const [submitting, setSubmitting] =
+    useState(false);
+
+  const [submitError, setSubmitError] =
+    useState("");
+
+  const [successMessage, setSuccessMessage] =
+    useState("");
 
   const validateField = (name, value) => {
     if (name === "title") {
@@ -121,7 +130,10 @@ export default function Register() {
     if (name === "password") {
       setErrors((prev) => ({
         ...prev,
-        password: validateField("password", value),
+        password: validateField(
+          "password",
+          value
+        ),
         confirmPassword: form.confirmPassword
           ? value === form.confirmPassword
             ? ""
@@ -146,10 +158,22 @@ export default function Register() {
 
   const validateForm = () => {
     const newErrors = {
-      title: validateField("title", form.title),
-      nama: validateField("nama", form.nama),
-      noHp: validateField("noHp", form.noHp),
-      email: validateField("email", form.email),
+      title: validateField(
+        "title",
+        form.title
+      ),
+      nama: validateField(
+        "nama",
+        form.nama
+      ),
+      noHp: validateField(
+        "noHp",
+        form.noHp
+      ),
+      email: validateField(
+        "email",
+        form.email
+      ),
       tanggalLahir: validateField(
         "tanggalLahir",
         form.tanggalLahir
@@ -205,6 +229,22 @@ export default function Register() {
       return;
     }
 
+    if (!API_URL) {
+      const message =
+        "VITE_API_URL belum dikonfigurasi. Periksa Environment Variable di Vercel.";
+
+      setSubmitError(message);
+
+      await Swal.fire({
+        icon: "error",
+        title: "Konfigurasi Error",
+        text: message,
+        confirmButtonColor: "#0B2B8E",
+      });
+
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -227,19 +267,28 @@ export default function Register() {
         }
       );
 
+      const text = await response.text();
+
       let data = {};
 
       try {
-        data = await response.json();
+        data = text
+          ? JSON.parse(text)
+          : {};
       } catch {
         data = {};
       }
+
+      console.log(
+        "REGISTER RESPONSE:",
+        data
+      );
 
       if (!response.ok) {
         const message =
           data?.message ||
           data?.error ||
-          "Registrasi gagal. Silakan coba lagi.";
+          `Registrasi gagal (${response.status})`;
 
         setSubmitError(message);
         setSubmitting(false);
@@ -254,17 +303,18 @@ export default function Register() {
         return;
       }
 
-      const successMessage =
+      const message =
         data?.message ||
+        data?.data?.message ||
         "Akun berhasil dibuat. Silakan masuk.";
 
-      setSuccessMessage(successMessage);
+      setSuccessMessage(message);
       setSubmitting(false);
 
       await Swal.fire({
         icon: "success",
         title: "Registrasi Berhasil",
-        text: successMessage,
+        text: message,
         confirmButtonColor: "#0B2B8E",
         timer: 1800,
         showConfirmButton: false,
@@ -272,10 +322,13 @@ export default function Register() {
 
       navigate("/login");
     } catch (error) {
-      console.error("Register error:", error);
+      console.error(
+        "Register error:",
+        error
+      );
 
       const message =
-        "Tidak dapat terhubung ke server. Pastikan backend sedang berjalan.";
+        "Tidak dapat terhubung ke server. Pastikan backend Railway sedang aktif dan VITE_API_URL sudah benar.";
 
       setSubmitError(message);
       setSubmitting(false);
@@ -310,7 +363,9 @@ export default function Register() {
         <div className="text-center mb-4">
           <h3
             className="fw-bold mb-2"
-            style={{ color: "#0B2B8E" }}
+            style={{
+              color: "#0B2B8E",
+            }}
           >
             Daftar
           </h3>
@@ -351,7 +406,9 @@ export default function Register() {
               id="registerTitle"
               name="title"
               className={`form-select ${
-                errors.title ? "is-invalid" : ""
+                errors.title
+                  ? "is-invalid"
+                  : ""
               }`}
               value={form.title}
               onChange={handleChange}
@@ -360,10 +417,21 @@ export default function Register() {
                 padding: "11px 12px",
               }}
             >
-              <option value="">Pilih title</option>
-              <option value="Tn">Tn</option>
-              <option value="Ny">Ny</option>
-              <option value="Nn">Nn</option>
+              <option value="">
+                Pilih title
+              </option>
+
+              <option value="Tn">
+                Tn
+              </option>
+
+              <option value="Ny">
+                Ny
+              </option>
+
+              <option value="Nn">
+                Nn
+              </option>
             </select>
 
             {errors.title && (
@@ -386,7 +454,9 @@ export default function Register() {
               id="registerNama"
               name="nama"
               className={`form-control ${
-                errors.nama ? "is-invalid" : ""
+                errors.nama
+                  ? "is-invalid"
+                  : ""
               }`}
               placeholder="Masukkan nama"
               value={form.nama}
@@ -417,7 +487,9 @@ export default function Register() {
               id="registerNoHp"
               name="noHp"
               className={`form-control ${
-                errors.noHp ? "is-invalid" : ""
+                errors.noHp
+                  ? "is-invalid"
+                  : ""
               }`}
               placeholder="Masukkan nomor HP"
               value={form.noHp}
@@ -448,7 +520,9 @@ export default function Register() {
               id="registerEmail"
               name="email"
               className={`form-control ${
-                errors.email ? "is-invalid" : ""
+                errors.email
+                  ? "is-invalid"
+                  : ""
               }`}
               placeholder="Masukkan email"
               value={form.email}
@@ -662,6 +736,7 @@ export default function Register() {
             }}
           >
             Sudah punya akun?{" "}
+
             <button
               type="button"
               className="border-0 bg-transparent fw-semibold p-0"

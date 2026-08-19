@@ -4,7 +4,7 @@ import Swal from "sweetalert2";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const API_URL = "http://127.0.0.1:9983";
+const API_URL = import.meta.env.VITE_API_URL;
 
 export default function Login() {
   const navigate = useNavigate();
@@ -98,31 +98,59 @@ export default function Login() {
       return;
     }
 
+    if (!API_URL) {
+      const message =
+        "VITE_API_URL belum dikonfigurasi. Periksa Environment Variable di Vercel.";
+
+      setSubmitError(message);
+
+      await Swal.fire({
+        icon: "error",
+        title: "Konfigurasi Error",
+        text: message,
+        confirmButtonColor: "#0B2B8E",
+      });
+
+      return;
+    }
+
     setSubmitting(true);
     setSubmitError("");
 
     try {
-      const response = await fetch(`${API_URL}/api/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: email.trim(),
-          password: password,
-        }),
-      });
+      const response = await fetch(
+        `${API_URL}/api/auth/login`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: email.trim(),
+            password: password,
+          }),
+        }
+      );
 
-      const data = await response.json();
+      const text = await response.text();
+
+      let data = {};
+
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = {};
+      }
+
+      console.log("LOGIN RESPONSE:", data);
 
       if (!response.ok) {
         const message =
           data?.message ||
           data?.error ||
-          "Ups, login gagal! Masukkan email & password yang benar.";
+          `Login gagal (${response.status})`;
 
         setSubmitError(message);
-
         setSubmitting(false);
 
         await Swal.fire({
@@ -135,13 +163,42 @@ export default function Login() {
         return;
       }
 
+      const token =
+        data?.token ||
+        data?.access_token ||
+        data?.accessToken ||
+        data?.data?.token ||
+        data?.data?.access_token ||
+        data?.data?.accessToken;
+
       const user =
         data?.user ||
         data?.data?.user ||
         data?.data ||
         null;
 
+      if (!token) {
+        console.error("TOKEN TIDAK DITEMUKAN:", data);
+
+        setSubmitError(
+          "Login berhasil tetapi token dari backend tidak ditemukan."
+        );
+
+        setSubmitting(false);
+
+        await Swal.fire({
+          icon: "error",
+          title: "Token Tidak Ditemukan",
+          text: "Backend berhasil merespons, tetapi token login tidak dikirim.",
+          confirmButtonColor: "#0B2B8E",
+        });
+
+        return;
+      }
+
       if (!user) {
+        console.error("USER TIDAK DITEMUKAN:", data);
+
         setSubmitError(
           "Login berhasil tetapi data user tidak ditemukan."
         );
@@ -150,13 +207,15 @@ export default function Login() {
 
         await Swal.fire({
           icon: "error",
-          title: "Login Gagal",
-          text: "Data user dari server tidak ditemukan.",
+          title: "Data User Tidak Ditemukan",
+          text: "Backend tidak mengirim data user.",
           confirmButtonColor: "#0B2B8E",
         });
 
         return;
       }
+
+      localStorage.setItem("token", token);
 
       localStorage.setItem(
         "current_user",
@@ -164,6 +223,9 @@ export default function Login() {
       );
 
       localStorage.setItem("isLoggedIn", "true");
+
+      console.log("TOKEN TERSIMPAN:", token);
+      console.log("USER LOGIN:", user);
 
       setSubmitting(false);
 
@@ -176,15 +238,14 @@ export default function Login() {
         showConfirmButton: false,
       });
 
-      navigate("/dashboard");
+      navigate("/Dashboard");
     } catch (error) {
       console.error("Login error:", error);
 
       const message =
-        "Tidak dapat terhubung ke server. Pastikan backend sedang berjalan.";
+        "Tidak dapat terhubung ke server. Pastikan backend Railway sedang aktif dan VITE_API_URL sudah benar.";
 
       setSubmitError(message);
-
       setSubmitting(false);
 
       await Swal.fire({
@@ -277,7 +338,11 @@ export default function Login() {
 
             <div className="position-relative">
               <input
-                type={showPassword ? "text" : "password"}
+                type={
+                  showPassword
+                    ? "text"
+                    : "password"
+                }
                 id="loginPassword"
                 className={`form-control ${
                   errors.password ? "is-invalid" : ""
@@ -293,7 +358,7 @@ export default function Login() {
 
               <button
                 type="button"
-                className="b   btn-sm position-absolute text-muted"
+                className="btn btn-sm position-absolute text-muted"
                 style={{
                   border: "none",
                   background: "none",
@@ -302,7 +367,9 @@ export default function Login() {
                   transform: "translateY(-50%)",
                 }}
                 onClick={() =>
-                  setShowPassword((prev) => !prev)
+                  setShowPassword(
+                    (prev) => !prev
+                  )
                 }
               >
                 <i
@@ -326,7 +393,9 @@ export default function Login() {
             <button
               type="button"
               className="btn p-0 small text-dark text-decoration-none fw-semibold"
-              onClick={() => navigate("/register")}
+              onClick={() =>
+                navigate("/register")
+              }
             >
               Lupa Sandi?
             </button>
@@ -345,10 +414,13 @@ export default function Login() {
               padding: "12px 0",
               letterSpacing: "0.5px",
               border: "none",
-              transition: "background-color 0.2s ease",
+              transition:
+                "background-color 0.2s ease",
             }}
           >
-            {submitting ? "Memproses..." : "Masuk"}
+            {submitting
+              ? "Memproses..."
+              : "Masuk"}
           </button>
 
           <p
@@ -358,7 +430,8 @@ export default function Login() {
               lineHeight: 1.5,
             }}
           >
-            Dengan masuk ke dalam akun, kamu menyetujui{" "}
+            Dengan masuk ke dalam akun, kamu
+            menyetujui{" "}
             <a
               href="#"
               className="fw-semibold text-decoration-none"
