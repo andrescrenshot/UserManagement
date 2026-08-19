@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Modal } from "react-bootstrap";
+import md5 from "md5";
 
 import {
   RiDashboardLine,
@@ -12,15 +13,80 @@ import {
   RiAwardLine,
   RiArrowDownSLine,
   RiLogoutBoxRLine,
+  RiUserLine,
 } from "react-icons/ri";
 
 const SideBar = ({ menuAktifDefault = "beranda" }) => {
-  const [menuAktif, setMenuAktif] = useState(menuAktifDefault);
+  const navigate = useNavigate();
+
+  const [menuAktif, setMenuAktif] =
+    useState(menuAktifDefault);
+
   const [kelasOpen, setKelasOpen] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] =
+    useState(false);
 
-  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const loadUser = () => {
+      try {
+        const currentUser =
+          localStorage.getItem("current_user");
+
+        if (currentUser) {
+          const parsedUser = JSON.parse(currentUser);
+
+          setUser(parsedUser);
+        }
+      } catch (error) {
+        console.error(
+          "Gagal membaca current_user:",
+          error
+        );
+      }
+    };
+
+    loadUser();
+
+    window.addEventListener(
+      "storage",
+      loadUser
+    );
+
+    return () => {
+      window.removeEventListener(
+        "storage",
+        loadUser
+      );
+    };
+  }, []);
+
+  const getProfileImage = () => {
+    if (!user?.email) {
+      return "https://www.gravatar.com/avatar/?d=mp&s=200";
+    }
+
+    const email = user.email
+      .trim()
+      .toLowerCase();
+
+    const hash = md5(email);
+
+    return `https://www.gravatar.com/avatar/${hash}?d=mp&s=200`;
+  };
+
+  const getInitial = () => {
+    if (!user?.nama) {
+      return "U";
+    }
+
+    return user.nama
+      .trim()
+      .charAt(0)
+      .toUpperCase();
+  };
 
   const itemStyle = (key) => ({
     display: "flex",
@@ -32,7 +98,8 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
     cursor: "pointer",
     color: "white",
     fontSize: "14px",
-    fontWeight: menuAktif === key ? 600 : 400,
+    fontWeight:
+      menuAktif === key ? 600 : 400,
     background:
       menuAktif === key
         ? "rgba(255,255,255,0.18)"
@@ -53,13 +120,19 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
         ? "white"
         : "rgba(255,255,255,0.75)",
     fontSize: "13px",
-    fontWeight: menuAktif === key ? 600 : 400,
+    fontWeight:
+      menuAktif === key ? 600 : 400,
     background:
       menuAktif === key
         ? "rgba(255,255,255,0.18)"
         : "transparent",
     transition: "background 0.2s",
   });
+
+  const handleProfileClick = () => {
+    setProfileOpen(false);
+    navigate("/profile");
+  };
 
   const handleLogoutClick = () => {
     setProfileOpen(false);
@@ -71,13 +144,17 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
   };
 
   const handleConfirmLogout = () => {
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("current_user");
     localStorage.removeItem("token");
+    localStorage.removeItem("current_user");
+    localStorage.removeItem("isLoggedIn");
 
+    setUser(null);
+    setProfileOpen(false);
     setShowLogoutConfirm(false);
 
-    navigate("/login", { replace: true });
+    navigate("/login", {
+      replace: true,
+    });
   };
 
   return (
@@ -136,7 +213,9 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
           </div>
 
           <div
-            onClick={() => setKelasOpen((prev) => !prev)}
+            onClick={() =>
+              setKelasOpen((prev) => !prev)
+            }
             style={{
               display: "flex",
               alignItems: "center",
@@ -161,19 +240,26 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
                 transform: kelasOpen
                   ? "rotate(180deg)"
                   : "rotate(0deg)",
-                transition: "transform 0.2s",
+                transition:
+                  "transform 0.2s",
               }}
             />
           </div>
 
           {kelasOpen && (
-            <div style={{ marginBottom: "6px" }}>
+            <div
+              style={{
+                marginBottom: "6px",
+              }}
+            >
               <div
                 onClick={() => {
                   setMenuAktif("presensi");
                   navigate("/kelasku");
                 }}
-                style={subItemStyle("presensi")}
+                style={subItemStyle(
+                  "presensi"
+                )}
               >
                 <RiFileList3Line size={20} />
                 Presensi Peserta
@@ -184,7 +270,9 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
                   setMenuAktif("input-nilai");
                   navigate("/penilaian");
                 }}
-                style={subItemStyle("input-nilai")}
+                style={subItemStyle(
+                  "input-nilai"
+                )}
               >
                 <RiBarChartLine size={20} />
                 Input Nilai
@@ -195,7 +283,9 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
                   setMenuAktif("sertifikat");
                   navigate("/sertifikat");
                 }}
-                style={subItemStyle("sertifikat")}
+                style={subItemStyle(
+                  "sertifikat"
+                )}
               >
                 <RiAwardLine size={20} />
                 Sertifikat
@@ -206,7 +296,9 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
 
         <div>
           <div
-            onClick={() => setProfileOpen((prev) => !prev)}
+            onClick={() =>
+              setProfileOpen((prev) => !prev)
+            }
             style={{
               display: "flex",
               alignItems: "center",
@@ -214,14 +306,15 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
               padding: "10px 8px",
               borderRadius: "12px",
               cursor: "pointer",
-              borderTop: "1px solid rgba(255,255,255,0.15)",
+              borderTop:
+                "1px solid rgba(255,255,255,0.15)",
               paddingTop: "18px",
             }}
           >
             <div
               style={{
-                width: "36px",
-                height: "36px",
+                width: "38px",
+                height: "38px",
                 borderRadius: "50%",
                 overflow: "hidden",
                 background: "#EEF2FF",
@@ -231,15 +324,31 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
                 flexShrink: 0,
               }}
             >
-              <img
-                src="https://i.pinimg.com/736x/73/41/0c/73410cf0fb499cc4d41587a98978b26f.jpg"
-                alt="Profile"
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                }}
-              />
+              {user?.email ? (
+                <img
+                  src={getProfileImage()}
+                  alt="Profile"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                  }}
+                  onError={(e) => {
+                    e.currentTarget.style.display =
+                      "none";
+                  }}
+                />
+              ) : (
+                <span
+                  style={{
+                    color: "#1226C4",
+                    fontSize: "16px",
+                    fontWeight: 700,
+                  }}
+                >
+                  {getInitial()}
+                </span>
+              )}
             </div>
 
             <div
@@ -247,9 +356,13 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
                 color: "white",
                 fontSize: "14px",
                 fontWeight: 600,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                maxWidth: "110px",
               }}
             >
-              Fdhil
+              {user?.nama || "User"}
             </div>
 
             <RiArrowDownSLine
@@ -257,10 +370,12 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
               style={{
                 marginLeft: "auto",
                 color: "white",
+                flexShrink: 0,
                 transform: profileOpen
                   ? "rotate(180deg)"
                   : "rotate(0deg)",
-                transition: "transform 0.2s",
+                transition:
+                  "transform 0.2s",
               }}
             />
           </div>
@@ -272,8 +387,32 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
                 background: "white",
                 borderRadius: "8px",
                 overflow: "hidden",
+                boxShadow:
+                  "0 4px 12px rgba(0,0,0,0.15)",
               }}
             >
+              <button
+                type="button"
+                onClick={handleProfileClick}
+                style={{
+                  width: "100%",
+                  border: "none",
+                  background: "white",
+                  padding: "11px 14px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  color: "#1226C4",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  textAlign: "left",
+                }}
+              >
+                <RiUserLine size={20} />
+                Profile
+              </button>
+
               <button
                 type="button"
                 onClick={handleLogoutClick}
@@ -281,7 +420,7 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
                   width: "100%",
                   border: "none",
                   background: "white",
-                  padding: "10px 14px",
+                  padding: "11px 14px",
                   display: "flex",
                   alignItems: "center",
                   gap: "10px",
@@ -351,7 +490,8 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
               style={{
                 backgroundColor: "#fff",
                 color: "#0B2B8E",
-                border: "1px solid #0B2B8E",
+                border:
+                  "1px solid #0B2B8E",
                 borderRadius: "8px",
                 padding: "10px 0",
               }}

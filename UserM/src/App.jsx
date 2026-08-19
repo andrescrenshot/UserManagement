@@ -6,6 +6,7 @@ import Dashboard from "./Pages/Dashboard";
 import TambahUser from "./Pages/UserTambah";
 import EditUser from "./Pages/EditUser";
 import Register from "./Pages/Register";
+import Profile from "./Pages/Profile";
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
 
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/Profile" element={<Profile />} />{" "}
           <Route path="/dashboard/tambah" element={<TambahUser />} />
           <Route path="/dashboard/edit/:id" element={<EditUser />} />
         </Route>
