@@ -6,17 +6,11 @@ import {
   RiEyeOffLine,
 } from "react-icons/ri";
 import Swal from "sweetalert2";
-import axios from "axios";
+import { createUserApi } from "./userApi";
 
 const BLUE = "#1226C4";
 const GRAY_BTN = "#C7CCD6";
 const BORDER = "#E5E7EB";
-
-const API_URL =
-  import.meta.env.VITE_API_URL ||
-  "https://usermanagement-production-f2c5.up.railway.app";
-
-const API_USER = `${API_URL}/api/tambah-user`;
 
 const emptyForm = {
   title: "Nona",
@@ -64,24 +58,6 @@ const titleMap = {
   Nona: "Nn",
 };
 
-const normalizePhone = (phone) => {
-  const digits = String(phone || "").replace(/\D/g, "");
-
-  if (!digits) {
-    return "";
-  }
-
-  if (digits.startsWith("62")) {
-    return digits;
-  }
-
-  if (digits.startsWith("0")) {
-    return `62${digits.substring(1)}`;
-  }
-
-  return `62${digits}`;
-};
-
 export default function TambahUser() {
   const navigate = useNavigate();
 
@@ -92,81 +68,78 @@ export default function TambahUser() {
     useState(false);
   const [loading, setLoading] = useState(false);
 
+  // =========================
+  // HANDLE CHANGE
+  // =========================
+
   const handleChange = (field) => (e) => {
-    const value = e.target.value;
+    setForm({
+      ...form,
+      [field]: e.target.value,
+    });
 
-    setForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-
-    setErrors((prev) => ({
-      ...prev,
-      [field]: "",
-    }));
+    if (errors[field]) {
+      setErrors({
+        ...errors,
+        [field]: "",
+      });
+    }
   };
+
+  // =========================
+  // HANDLE PHONE
+  // =========================
 
   const handlePhoneChange = (e) => {
-    let digitsOnly = e.target.value.replace(/\D/g, "");
+    const digitsOnly = e.target.value.replace(/[^0-9]/g, "");
 
-    if (digitsOnly.startsWith("62")) {
-      digitsOnly = digitsOnly.substring(2);
-    }
-
-    if (digitsOnly.startsWith("0")) {
-      digitsOnly = digitsOnly.substring(1);
-    }
-
-    digitsOnly = digitsOnly.substring(0, 13);
-
-    setForm((prev) => ({
-      ...prev,
+    setForm({
+      ...form,
       noHp: digitsOnly,
-    }));
+    });
 
-    setErrors((prev) => ({
-      ...prev,
-      noHp: "",
-    }));
+    if (errors.noHp) {
+      setErrors({
+        ...errors,
+        noHp: "",
+      });
+    }
   };
+
+  // =========================
+  // VALIDATION
+  // =========================
 
   const validate = () => {
     const newErrors = {};
 
-    const nama = form.nama.trim();
-    const email = form.email.trim().toLowerCase();
-
-    if (!nama) {
+    if (!form.nama.trim()) {
       newErrors.nama = "Nama lengkap wajib diisi";
-    } else if (nama.length < 3) {
-      newErrors.nama = "Nama minimal 3 karakter";
     }
 
     if (!form.noHp) {
       newErrors.noHp = "No. handphone wajib diisi";
-    } else if (form.noHp.length < 9) {
-      newErrors.noHp = "Nomor handphone tidak valid";
-    } else if (form.noHp.length > 13) {
-      newErrors.noHp = "Nomor handphone terlalu panjang";
+    } else if (("62" + form.noHp).length > 15) {
+      newErrors.noHp =
+        "Maksimum terdiri dari 15 angka termasuk kode negara";
     }
 
-    if (!email) {
+    if (!form.email) {
       newErrors.email = "Email wajib diisi";
-    } else if (!EMAIL_RULE.test(email)) {
+    } else if (!EMAIL_RULE.test(form.email)) {
       newErrors.email = "Masukkan email yang valid";
     }
 
     if (!form.tanggalLahir) {
-      newErrors.tanggalLahir = "Tanggal lahir wajib diisi";
+      newErrors.tanggalLahir =
+        "Tanggal lahir wajib diisi";
     }
 
     if (!form.roles) {
       newErrors.roles = "Pilih role terlebih dahulu";
     }
 
-    if (!form.password) {
-      newErrors.password = "Kata sandi wajib diisi";
-    } else if (!PASSWORD_RULE.test(form.password)) {
+    if (!PASSWORD_RULE.test(form.password)) {
       newErrors.password =
         "Min 8 karakter, kombinasi huruf besar-kecil, angka & karakter khusus";
     }
@@ -174,7 +147,9 @@ export default function TambahUser() {
     if (!form.confirmPassword) {
       newErrors.confirmPassword =
         "Konfirmasi kata sandi wajib diisi";
-    } else if (form.confirmPassword !== form.password) {
+    } else if (
+      form.confirmPassword !== form.password
+    ) {
       newErrors.confirmPassword =
         "Kata sandi tidak cocok";
     }
@@ -183,14 +158,11 @@ export default function TambahUser() {
   };
 
   const isValid =
-    form.nama.trim().length >= 3 &&
-    form.noHp.length >= 9 &&
-    form.noHp.length <= 13 &&
-    EMAIL_RULE.test(form.email.trim()) &&
-    form.tanggalLahir !== "" &&
-    form.roles !== "" &&
-    PASSWORD_RULE.test(form.password) &&
-    form.confirmPassword === form.password;
+    Object.keys(validate()).length === 0;
+
+  // =========================
+  // SUBMIT
+  // =========================
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -200,27 +172,13 @@ export default function TambahUser() {
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length > 0) {
-      await Swal.fire({
-        icon: "warning",
-        title: "Data belum lengkap",
-        text: "Pastikan semua data sudah diisi dengan benar.",
-        confirmButtonColor: BLUE,
-      });
-
-      return;
-    }
-
-    const token = localStorage.getItem("token");
-
-    if (!token) {
-      await Swal.fire({
+      Swal.fire({
         icon: "error",
-        title: "Belum Login",
-        text: "Token login tidak ditemukan. Silakan login kembali.",
+        title: "Ups, gagal!",
+        text: "Pastikan memasukkan data yang benar. Coba lagi!",
         confirmButtonColor: BLUE,
       });
 
-      navigate("/login");
       return;
     }
 
@@ -230,134 +188,58 @@ export default function TambahUser() {
       const payload = {
         title: titleMap[form.title],
         nama: form.nama.trim(),
-        noHp: normalizePhone(form.noHp),
-        email: form.email.trim().toLowerCase(),
+        noHp: form.noHp,
+        email: form.email.trim(),
         tanggalLahir: form.tanggalLahir,
         roles: form.roles,
         password: form.password,
       };
 
-      console.log("=================================");
-      console.log("POST TAMBAH USER");
-      console.log("URL:", API_USER);
-      console.log("PAYLOAD:", payload);
-      console.log("TOKEN:", token);
-      console.log("=================================");
-
-      const response = await axios.post(
-        API_USER,
-        payload,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          timeout: 30000,
-        }
+      console.log(
+        "DATA TAMBAH USER:",
+        payload
       );
 
-      console.log("STATUS:", response.status);
-      console.log("RESPONSE:", response.data);
+      const response = await createUserApi(payload);
 
-      const data = response.data;
+      console.log(
+        "RESPONSE BACKEND:",
+        response.data
+      );
 
-      if (
-        response.status === 200 ||
-        response.status === 201 ||
-        data?.success === true
-      ) {
+      if (response.success) {
         await Swal.fire({
           icon: "success",
           title: "Berhasil!",
-          text:
-            data?.message ||
-            "User baru berhasil ditambahkan.",
+          text: "User baru berhasil ditambahkan.",
           confirmButtonColor: BLUE,
         });
 
         navigate("/Dashboard");
-        return;
-      }
-
-      throw new Error(
-        data?.message ||
-          data?.error ||
-          "User gagal ditambahkan."
-      );
-    } catch (error) {
-      console.error("=================================");
-      console.error("ERROR TAMBAH USER");
-      console.error(error);
-      console.error("=================================");
-
-      let message = "Gagal menambahkan user.";
-
-      if (error.response) {
-        console.error(
-          "STATUS BACKEND:",
-          error.response.status
-        );
-
-        console.error(
-          "RESPONSE BACKEND:",
-          error.response.data
-        );
-
-        const backendData = error.response.data;
-
-        message =
-          backendData?.message ||
-          backendData?.error ||
-          backendData?.detail ||
-          `Server error (${error.response.status})`;
-
-        if (error.response.status === 400) {
-          message =
-            backendData?.message ||
-            backendData?.error ||
-            "Data yang dikirim tidak sesuai dengan backend.";
-        }
-
-        if (error.response.status === 401) {
-          message =
-            "Session login sudah tidak valid. Silakan login kembali.";
-
-          localStorage.removeItem("token");
-          localStorage.removeItem("current_user");
-          localStorage.removeItem("isLoggedIn");
-        }
-
-        if (error.response.status === 403) {
-          message =
-            "Anda tidak memiliki izin untuk menambahkan user.";
-        }
-
-        if (error.response.status === 404) {
-          message =
-            "Endpoint /api/tambah-user tidak ditemukan di Railway.";
-        }
-
-        if (error.response.status === 409) {
-          message =
-            backendData?.message ||
-            "Email sudah terdaftar.";
-        }
-
-        if (error.response.status >= 500) {
-          message =
-            backendData?.message ||
-            "Terjadi error pada backend Railway.";
-        }
-      } else if (error.request) {
-        message =
-          "Railway tidak dapat dihubungi. Pastikan backend sedang aktif.";
       } else {
-        message =
-          error.message ||
-          "Terjadi kesalahan saat menambahkan user.";
+        Swal.fire({
+          icon: "error",
+          title: "Gagal!",
+          text:
+            response.message ||
+            "User gagal ditambahkan.",
+          confirmButtonColor: BLUE,
+        });
       }
+    } catch (error) {
+      console.error(
+        "ERROR TAMBAH USER:",
+        error
+      );
 
-      await Swal.fire({
+      let message =
+        "Gagal terhubung ke backend.";
+
+      message =
+        error.message ||
+        "Backend tidak dapat dihubungi. Pastikan server Python sedang berjalan.";
+
+      Swal.fire({
         icon: "error",
         title: "Gagal!",
         text: message,
@@ -378,6 +260,22 @@ export default function TambahUser() {
         width: "100%",
       }}
     >
+      {/* HEADER */}
+
+      <div
+        style={{
+          background: "#101B4C",
+          color: "white",
+          padding: "16px 28px",
+          fontSize: "16px",
+          fontWeight: 600,
+        }}
+      >
+        CRM For Education Binus
+      </div>
+
+      {/* CONTENT */}
+
       <div
         style={{
           flex: 1,
@@ -416,7 +314,14 @@ export default function TambahUser() {
             </h2>
 
             <form onSubmit={handleSubmit}>
-              <div style={{ marginBottom: "18px" }}>
+
+              {/* TITLE */}
+
+              <div
+                style={{
+                  marginBottom: "18px",
+                }}
+              >
                 <label style={labelStyle}>
                   Title
                 </label>
@@ -427,41 +332,50 @@ export default function TambahUser() {
                     gap: "24px",
                   }}
                 >
-                  {["Tuan", "Nyonya", "Nona"].map(
-                    (opt) => (
-                      <label
-                        key={opt}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "6px",
-                          fontSize: "13px",
-                          color: "#374151",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <input
-                          type="radio"
-                          name="title"
-                          checked={
-                            form.title === opt
-                          }
-                          onChange={() =>
-                            setForm((prev) => ({
-                              ...prev,
-                              title: opt,
-                            }))
-                          }
-                        />
+                  {[
+                    "Tuan",
+                    "Nyonya",
+                    "Nona",
+                  ].map((opt) => (
+                    <label
+                      key={opt}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        fontSize: "16px",
+                        color: "#374151",
+                        cursor: "pointer",
+                        fontWeight: "300",
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="title"
+                        checked={
+                          form.title === opt
+                        }
+                        onChange={() =>
+                          setForm({
+                            ...form,
+                            title: opt,
+                          })
+                        }
+                      />
 
-                        {opt}
-                      </label>
-                    )
-                  )}
+                      {opt}
+                    </label>
+                  ))}
                 </div>
               </div>
 
-              <div style={{ marginBottom: "18px" }}>
+              {/* NAMA LENGKAP */}
+
+              <div
+                style={{
+                  marginBottom: "18px",
+                }}
+              >
                 <label style={labelStyle}>
                   Nama Lengkap
                 </label>
@@ -471,12 +385,7 @@ export default function TambahUser() {
                   placeholder="Masukkan Nama Lengkap"
                   value={form.nama}
                   onChange={handleChange("nama")}
-                  style={{
-                    ...inputStyle,
-                    borderColor: errors.nama
-                      ? "#DC2626"
-                      : BORDER,
-                  }}
+                  style={inputStyle}
                 />
 
                 {errors.nama && (
@@ -486,7 +395,13 @@ export default function TambahUser() {
                 )}
               </div>
 
-              <div style={{ marginBottom: "18px" }}>
+              {/* NO HP */}
+
+              <div
+                style={{
+                  marginBottom: "18px",
+                }}
+              >
                 <label style={labelStyle}>
                   No. Handphone
                 </label>
@@ -499,33 +414,56 @@ export default function TambahUser() {
                 >
                   <div
                     style={{
+                      width: "75px",
+                      height: "38px",
+                      border:
+                        "1px solid #D0D5DD",
+                      borderRadius: "8px",
+                      backgroundColor: "#F9FAFB",
                       display: "flex",
+                      justifyContent: "center",
                       alignItems: "center",
                       gap: "6px",
-                      border: `1px solid ${BORDER}`,
-                      borderRadius: "8px",
-                      padding: "0 12px",
-                      fontSize: "14px",
-                      color: "#374151",
-                      background: "#F9FAFB",
-                      whiteSpace: "nowrap",
+                      padding: "0 8px",
+                      boxSizing: "border-box",
+                      flexShrink: 0,
                     }}
                   >
-                    🇮🇩 +62
+                    <span
+                      style={{
+                        display: "block",
+                        width: "18px",
+                        height: "12px",
+                        background:
+                          "linear-gradient(to bottom, #CE1126 50%, #FFFFFF 50%)",
+                        border:
+                          "1px solid #E4E7EC",
+                        borderRadius: "2px",
+                      }}
+                    />
+
+                    <span
+                      style={{
+                        fontSize: "14px",
+                        fontWeight: 500,
+                        color: "#344054",
+                        lineHeight: "14px",
+                        margin: 0,
+                      }}
+                    >
+                      +62
+                    </span>
                   </div>
 
                   <input
                     type="text"
                     inputMode="numeric"
-                    placeholder="812xxxxxxxx"
+                    placeholder="Cth: 812-xxxx-xxxx"
                     value={form.noHp}
                     onChange={handlePhoneChange}
                     style={{
                       ...inputStyle,
                       flex: 1,
-                      borderColor: errors.noHp
-                        ? "#DC2626"
-                        : BORDER,
                     }}
                   />
                 </div>
@@ -537,7 +475,13 @@ export default function TambahUser() {
                 )}
               </div>
 
-              <div style={{ marginBottom: "18px" }}>
+              {/* EMAIL */}
+
+              <div
+                style={{
+                  marginBottom: "18px",
+                }}
+              >
                 <label style={labelStyle}>
                   Email
                 </label>
@@ -547,12 +491,7 @@ export default function TambahUser() {
                   placeholder="Misal: nama@email.com"
                   value={form.email}
                   onChange={handleChange("email")}
-                  style={{
-                    ...inputStyle,
-                    borderColor: errors.email
-                      ? "#DC2626"
-                      : BORDER,
-                  }}
+                  style={inputStyle}
                 />
 
                 {errors.email && (
@@ -562,7 +501,13 @@ export default function TambahUser() {
                 )}
               </div>
 
-              <div style={{ marginBottom: "18px" }}>
+              {/* TANGGAL LAHIR */}
+
+              <div
+                style={{
+                  marginBottom: "18px",
+                }}
+              >
                 <label style={labelStyle}>
                   Tanggal Lahir
                 </label>
@@ -573,32 +518,27 @@ export default function TambahUser() {
                   }}
                 >
                   <input
-                    type="date"
+                    type="text"
+                    placeholder="DD/MM/YYYY"
                     value={form.tanggalLahir}
                     onChange={handleChange(
                       "tanggalLahir"
                     )}
                     style={{
                       ...inputStyle,
-                      paddingRight: "42px",
-                      borderColor:
-                        errors.tanggalLahir
-                          ? "#DC2626"
-                          : BORDER,
-                      cursor: "pointer",
+                      paddingRight: "36px",
                     }}
                   />
 
                   <RiCalendarLine
-                    size={18}
+                    size={16}
                     style={{
                       position: "absolute",
                       right: "12px",
                       top: "50%",
                       transform:
                         "translateY(-50%)",
-                      color: "#6B7280",
-                      pointerEvents: "none",
+                      color: "#9CA3AF",
                     }}
                   />
                 </div>
@@ -610,23 +550,27 @@ export default function TambahUser() {
                 )}
               </div>
 
-              <div style={{ marginBottom: "8px" }}>
+              {/* ROLES */}
+
+              <div
+                style={{
+                  marginBottom: "24px",
+                }}
+              >
                 <label style={labelStyle}>
                   Roles
                 </label>
 
                 <select
                   value={form.roles}
-                  onChange={handleChange("roles")}
+                  onChange={handleChange(
+                    "roles"
+                  )}
                   style={{
                     ...inputStyle,
                     color: form.roles
                       ? "#111827"
                       : "#9CA3AF",
-                    borderColor: errors.roles
-                      ? "#DC2626"
-                      : BORDER,
-                    cursor: "pointer",
                   }}
                 >
                   <option value="">
@@ -649,14 +593,24 @@ export default function TambahUser() {
                 )}
               </div>
 
+              {/* SEPARATOR */}
+
               <div
                 style={{
-                  borderTop: `1px solid ${BORDER}`,
-                  margin: "18px 0",
+                  borderTop:
+                    `1px solid ${BORDER}`,
+                  margin:
+                    "10px 0 18px",
                 }}
               />
 
-              <div style={{ marginBottom: "18px" }}>
+              {/* PASSWORD */}
+
+              <div
+                style={{
+                  marginBottom: "18px",
+                }}
+              >
                 <label style={labelStyle}>
                   Kata Sandi
                 </label>
@@ -679,11 +633,7 @@ export default function TambahUser() {
                     )}
                     style={{
                       ...inputStyle,
-                      paddingRight: "42px",
-                      borderColor:
-                        errors.password
-                          ? "#DC2626"
-                          : BORDER,
+                      paddingRight: "40px",
                     }}
                   />
 
@@ -729,7 +679,13 @@ export default function TambahUser() {
                 )}
               </div>
 
-              <div style={{ marginBottom: "26px" }}>
+              {/* KONFIRMASI PASSWORD */}
+
+              <div
+                style={{
+                  marginBottom: "26px",
+                }}
+              >
                 <label style={labelStyle}>
                   Konfirmasi Kata Sandi
                 </label>
@@ -746,17 +702,15 @@ export default function TambahUser() {
                         : "password"
                     }
                     placeholder="Masukkan Ulang Kata Sandi"
-                    value={form.confirmPassword}
+                    value={
+                      form.confirmPassword
+                    }
                     onChange={handleChange(
                       "confirmPassword"
                     )}
                     style={{
                       ...inputStyle,
-                      paddingRight: "42px",
-                      borderColor:
-                        errors.confirmPassword
-                          ? "#DC2626"
-                          : BORDER,
+                      paddingRight: "40px",
                     }}
                   />
 
@@ -773,7 +727,9 @@ export default function TambahUser() {
                         cursor: "pointer",
                       }}
                       onClick={() =>
-                        setShowConfirmPassword(false)
+                        setShowConfirmPassword(
+                          false
+                        )
                       }
                     />
                   ) : (
@@ -789,7 +745,9 @@ export default function TambahUser() {
                         cursor: "pointer",
                       }}
                       onClick={() =>
-                        setShowConfirmPassword(true)
+                        setShowConfirmPassword(
+                          true
+                        )
                       }
                     />
                   )}
@@ -802,9 +760,10 @@ export default function TambahUser() {
                 )}
               </div>
 
+              {/* BUTTON */}
+
               <div
                 style={{
-                  marginTop: "26px",
                   display: "flex",
                   justifyContent: "center",
                   gap: "12px",
@@ -817,10 +776,12 @@ export default function TambahUser() {
                     navigate("/Dashboard")
                   }
                   style={{
-                    padding: "12px 24px",
+                    padding:
+                      "12px 24px",
                     fontSize: "13px",
                     borderRadius: "8px",
-                    border: `1px solid ${BORDER}`,
+                    border:
+                      `1px solid ${BORDER}`,
                     background: "white",
                     color: "#6B7280",
                     cursor: loading
@@ -835,20 +796,19 @@ export default function TambahUser() {
                   type="submit"
                   disabled={loading}
                   style={{
-                    padding: "12px 32px",
+                    padding:
+                      "12px 32px",
                     fontSize: "13px",
                     fontWeight: 600,
                     borderRadius: "8px",
                     border: "none",
-                    background:
-                      !loading && isValid
-                        ? BLUE
-                        : GRAY_BTN,
+                    background: isValid
+                      ? BLUE
+                      : GRAY_BTN,
                     color: "white",
-                    cursor:
-                      loading || !isValid
-                        ? "not-allowed"
-                        : "pointer",
+                    cursor: loading
+                      ? "not-allowed"
+                      : "pointer",
                   }}
                 >
                   {loading
@@ -856,8 +816,9 @@ export default function TambahUser() {
                     : "SIMPAN DATA"}
                 </button>
               </div>
+
             </form>
-          </div>  
+          </div>
         </div>
       </div>
     </div>

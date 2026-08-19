@@ -1,3 +1,4 @@
+import json
 import falcon
 
 from .services import register_user, login_user
@@ -87,7 +88,7 @@ class RegisterResource:
                 resp.status = falcon.HTTP_409
                 resp.media = {
                     "success": False,
-                    "message": "Email sudah terdaftar atau data tidak valid"
+                    "message": "Email sudah terdaftar"
                 }
                 return
 
@@ -132,12 +133,12 @@ class LoginResource:
                 }
                 return
 
-            result = login_user(
+            user = login_user(
                 email=email,
                 password=password
             )
 
-            if result is None:
+            if user is None:
                 resp.status = falcon.HTTP_401
                 resp.media = {
                     "success": False,
@@ -146,12 +147,10 @@ class LoginResource:
                 return
 
             resp.status = falcon.HTTP_200
-
             resp.media = {
                 "success": True,
                 "message": "Login berhasil",
-                "token": result["token"],
-                "user": result["user"]
+                "user": user
             }
 
         except Exception as e:

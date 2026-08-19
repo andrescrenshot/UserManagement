@@ -1,13 +1,22 @@
-const API_URL = "https://usermanagement-production-f2c5.up.railway.app";
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "https://usermanagement-production-f2c5.up.railway.app";
 
-const getToken = () => localStorage.getItem("token");
+const getToken = () => {
+  return localStorage.getItem("token");
+};
 
 const getHeaders = () => {
   const token = getToken();
 
   return {
+    Accept: "application/json",
     "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(token
+      ? {
+          Authorization: `Bearer ${token}`,
+        }
+      : {}),
   };
 };
 
@@ -15,18 +24,27 @@ const parseResponse = async (response) => {
   const text = await response.text();
 
   let body = {};
+
   try {
     body = text ? JSON.parse(text) : {};
   } catch {
-    body = {};
+    body = {
+      message: text || "Response server tidak valid.",
+    };
   }
 
   if (!response.ok) {
-    throw new Error(
+    const error = new Error(
       body?.message ||
         body?.error ||
-        `Request gagal (${response.status})`,
+        body?.detail ||
+        `Request gagal (${response.status})`
     );
+
+    error.status = response.status;
+    error.response = body;
+
+    throw error;
   }
 
   return body;
@@ -44,24 +62,51 @@ const request = async (path, options = {}) => {
   return parseResponse(response);
 };
 
-export const getUsersApi = () => request("/api/tambah-user");
+export const getUsersApi = async () => {
+  return request("/api/tambah-user", {
+    method: "GET",
+  });
+};
 
-export const getUserApi = (id) => request(`/api/edit-user/${id}`);
+export const getUserApi = async (id) => {
+  if (!id) {
+    throw new Error("ID user tidak ditemukan.");
+  }
 
-export const createUserApi = (data) =>
-  request("/api/tambah-user", {
+  return request(`/api/edit-user/${id}`, {
+    method: "GET",
+  });
+};
+
+export const createUserApi = async (data) => {
+  return request("/api/tambah-user", {
     method: "POST",
     body: JSON.stringify(data),
   });
+};
 
-export const updateUserApi = (id, data) =>
-  request(`/api/edit-user/${id}`, {
+export const updateUserApi = async (id, data) => {
+  if (!id) {
+    throw new Error("ID user tidak ditemukan.");
+  }
+
+  return request(`/api/edit-user/${id}`, {
     method: "PUT",
     body: JSON.stringify(data),
   });
+};
 
-export const deleteUserApi = (id, reason) =>
-  request(`/api/tambah-user/${id}`, {
+export const deleteUserApi = async (id, reason = "") => {
+  if (!id) {
+    throw new Error("ID user tidak ditemukan.");
+  }
+
+  return request(`/api/tambah-user/${id}`, {
     method: "DELETE",
-    body: JSON.stringify({ reason }),
+    body: JSON.stringify({
+      reason,
+    }),
   });
+};
+
+export { API_URL };

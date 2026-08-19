@@ -9,84 +9,78 @@ from .services import (
 
 class EditUserResource:
 
-    # GET /api/edit-user/{user_id}
     def on_get(self, req, resp, user_id):
 
         try:
-
             user = get_user(user_id)
 
             if not user:
-
                 resp.status = falcon.HTTP_404
-
                 resp.media = {
                     "success": False,
                     "message": "User tidak ditemukan"
                 }
-
                 return
 
             resp.status = falcon.HTTP_200
-
             resp.media = {
                 "success": True,
                 "data": user
             }
 
         except Exception as e:
-
             resp.status = falcon.HTTP_500
-
             resp.media = {
                 "success": False,
                 "message": str(e)
             }
 
-
-    # PUT /api/edit-user/{user_id}
     def on_put(self, req, resp, user_id):
 
         try:
-
             data = json.load(req.bounded_stream)
 
-            required_fields = [
-                "title",
-                "nama",
-                "noHp",
-                "email",
-                "tanggalLahir",
-                "roles"
-            ]
+        except (json.JSONDecodeError, TypeError):
+            resp.status = falcon.HTTP_400
+            resp.media = {
+                "success": False,
+                "message": "Format JSON tidak valid"
+            }
+            return
 
-            # Validasi field
-            for field in required_fields:
+        required_fields = [
+            "title",
+            "nama",
+            "noHp",
+            "email",
+            "tanggalLahir",
+            "roles"
+        ]
 
-                if not data.get(field):
+        for field in required_fields:
 
-                    resp.status = falcon.HTTP_400
-
-                    resp.media = {
-                        "success": False,
-                        "message": f"{field} wajib diisi"
-                    }
-
-                    return
-
-            # Validasi title
-            if data["title"] not in ["Tn", "Ny", "Nn"]:
+            if not str(data.get(field, "")).strip():
 
                 resp.status = falcon.HTTP_400
-
                 resp.media = {
                     "success": False,
-                    "message": "Title harus Tn, Ny, atau Nn"
+                    "message": f"{field} wajib diisi"
                 }
 
                 return
 
-            # Update user
+        if data["title"] not in ["Tn", "Ny", "Nn"]:
+
+            resp.status = falcon.HTTP_400
+            resp.media = {
+                "success": False,
+                "message": "Title harus Tn, Ny, atau Nn"
+            }
+
+            return
+
+        try:
+
             user = update_user(
                 user_id,
                 data
@@ -95,7 +89,6 @@ class EditUserResource:
             if not user:
 
                 resp.status = falcon.HTTP_404
-
                 resp.media = {
                     "success": False,
                     "message": "User tidak ditemukan"
@@ -104,26 +97,23 @@ class EditUserResource:
                 return
 
             resp.status = falcon.HTTP_200
-
             resp.media = {
                 "success": True,
                 "message": "Perubahan data user berhasil disimpan",
                 "data": user
             }
 
-        except json.JSONDecodeError:
+        except ValueError as e:
 
-            resp.status = falcon.HTTP_400
-
+            resp.status = falcon.HTTP_409
             resp.media = {
                 "success": False,
-                "message": "Format JSON tidak valid"
+                "message": str(e)
             }
 
         except Exception as e:
 
             resp.status = falcon.HTTP_500
-
             resp.media = {
                 "success": False,
                 "message": str(e)

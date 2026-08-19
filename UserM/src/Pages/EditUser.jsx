@@ -1,8 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { RiCalendarLine } from "react-icons/ri";
+import {
+  RiCalendarLine,
+} from "react-icons/ri";
 import Swal from "sweetalert2";
-import { getUserApi, updateUserApi } from "../api/userApi";
+import {
+  getUserApi,
+  updateUserApi,
+} from "../api/userApi";
 
 const BLUE = "#1226C4";
 const GRAY_BTN = "#C7CCD6";
@@ -44,6 +49,71 @@ const reverseTitleMap = {
   Tn: "Tuan",
   Ny: "Nyonya",
   Nn: "Nona",
+  Tuan: "Tuan",
+  Nyonya: "Nyonya",
+  Nona: "Nona",
+};
+
+const normalizeDate = (value) => {
+  if (!value) {
+    return "";
+  }
+
+  const stringValue = String(value);
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(stringValue)) {
+    return stringValue;
+  }
+
+  if (stringValue.includes("T")) {
+    return stringValue.split("T")[0];
+  }
+
+  if (stringValue.includes(" ")) {
+    return stringValue.split(" ")[0];
+  }
+
+  const match = stringValue.match(
+    /^(\d{2})[/-](\d{2})[/-](\d{4})$/
+  );
+
+  if (match) {
+    return `${match[3]}-${match[2]}-${match[1]}`;
+  }
+
+  return "";
+};
+
+const normalizePhoneForForm = (value) => {
+  let phone = String(value || "").replace(/\D/g, "");
+
+  if (phone.startsWith("62")) {
+    phone = phone.substring(2);
+  }
+
+  if (phone.startsWith("0")) {
+    phone = phone.substring(1);
+  }
+
+  return phone.substring(0, 13);
+};
+
+const normalizePhoneForApi = (value) => {
+  const phone = String(value || "").replace(/\D/g, "");
+
+  if (!phone) {
+    return "";
+  }
+
+  if (phone.startsWith("62")) {
+    return phone;
+  }
+
+  if (phone.startsWith("0")) {
+    return `62${phone.substring(1)}`;
+  }
+
+  return `62${phone}`;
 };
 
 export default function EditUser() {
@@ -64,51 +134,96 @@ export default function EditUser() {
   const [saving, setSaving] = useState(false);
   const [notFound, setNotFound] = useState(false);
 
-  // ==========================================
-  // GET USER DARI BACKEND
-  // ==========================================
-
   useEffect(() => {
     const fetchUser = async () => {
+      if (!id) {
+        setNotFound(true);
+        setLoading(false);
+
+        await Swal.fire({
+          icon: "error",
+          title: "ID Tidak Ditemukan",
+          text: "ID user tidak tersedia.",
+          confirmButtonColor: BLUE,
+        });
+
+        navigate("/Dashboard");
+        return;
+      }
+
       try {
         setLoading(true);
 
         const response = await getUserApi(id);
 
-        const user = response.data;
+        console.log("GET USER EDIT:", response);
+
+        const user =
+          response?.data?.data ||
+          response?.data ||
+          response?.user ||
+          response;
+
+        if (!user || typeof user !== "object") {
+          throw new Error(
+            "Format data user dari backend tidak valid."
+          );
+        }
 
         setForm({
-          title: reverseTitleMap[user.title] || "Nona",
+          title:
+            reverseTitleMap[user.title] ||
+            "Nona",
 
-          nama: user.nama || "",
+          nama:
+            user.nama ||
+            user.name ||
+            "",
 
-          noHp: (user.noHp || "")
-            .replace(/[^0-9]/g, "")
-            .replace(/^62/, ""),
+          noHp: normalizePhoneForForm(
+            user.noHp ||
+              user.no_hp ||
+              user.phone ||
+              ""
+          ),
 
-          email: user.email || "",
+          email:
+            user.email ||
+            "",
 
-          tanggalLahir: user.tanggalLahir || "",
+          tanggalLahir:
+            normalizeDate(
+              user.tanggalLahir ||
+                user.tanggal_lahir ||
+                user.birthDate ||
+                ""
+            ),
 
-          roles: user.roles || "",
+          roles:
+            user.roles ||
+            user.role ||
+            "",
         });
 
+        setNotFound(false);
       } catch (error) {
-        console.error("Gagal mengambil user:", error);
+        console.error(
+          "Gagal mengambil user:",
+          error
+        );
 
         setNotFound(true);
 
-        Swal.fire({
+        await Swal.fire({
           icon: "error",
           title: "Gagal!",
           text:
-            error.message ||
+            error?.message ||
             "Data user tidak ditemukan.",
           confirmButtonColor: BLUE,
-        }).then(() => {
-          navigate("/Dashboard");
         });
 
+        navigate("/Dashboard");
       } finally {
         setLoading(false);
       }
@@ -117,52 +232,78 @@ export default function EditUser() {
     fetchUser();
   }, [id, navigate]);
 
-  // ==========================================
-  // HANDLE INPUT
-  // ==========================================
-
   const handleChange = (field) => (e) => {
-    setForm({
-      ...form,
-      [field]: e.target.value,
-    });
-  };
+    const value = e.target.value;
 
-  // ==========================================
-  // HANDLE NO HP
-  // ==========================================
+    setForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+
+    setErrors((prev) => ({
+      ...prev,
+      [field]: "",
+    }));
+  };
 
   const handlePhoneChange = (e) => {
-    const digitsOnly = e.target.value.replace(/[^0-9]/g, "");
+    let digitsOnly = e.target.value.replace(
+      /\D/g,
+      ""
+    );
 
-    setForm({
-      ...form,
+    if (digitsOnly.startsWith("62")) {
+      digitsOnly = digitsOnly.substring(2);
+    }
+
+    if (digitsOnly.startsWith("0")) {
+      digitsOnly = digitsOnly.substring(1);
+    }
+
+    digitsOnly = digitsOnly.substring(0, 13);
+
+    setForm((prev) => ({
+      ...prev,
       noHp: digitsOnly,
-    });
-  };
+    }));
 
-  // ==========================================
-  // VALIDASI
-  // ==========================================
+    setErrors((prev) => ({
+      ...prev,
+      noHp: "",
+    }));
+  };
 
   const validate = () => {
     const newErrors = {};
 
-    if (!form.nama.trim()) {
-      newErrors.nama = "Nama lengkap wajib diisi";
+    const nama = form.nama.trim();
+    const email = form.email.trim();
+
+    if (!nama) {
+      newErrors.nama =
+        "Nama lengkap wajib diisi";
+    } else if (nama.length < 3) {
+      newErrors.nama =
+        "Nama minimal 3 karakter";
     }
 
     if (!form.noHp) {
-      newErrors.noHp = "No. handphone wajib diisi";
-    } else if (("62" + form.noHp).length > 15) {
       newErrors.noHp =
-        "Maksimum terdiri dari 15 angka termasuk kode negara";
+        "No. handphone wajib diisi";
+    } else if (form.noHp.length < 9) {
+      newErrors.noHp =
+        "Nomor handphone tidak valid";
+    } else if (form.noHp.length > 13) {
+      newErrors.noHp =
+        "Nomor handphone terlalu panjang";
     }
 
-    if (!form.email) {
-      newErrors.email = "Email wajib diisi";
-    } else if (!EMAIL_RULE.test(form.email)) {
-      newErrors.email = "Masukkan email yang valid";
+    if (!email) {
+      newErrors.email =
+        "Email wajib diisi";
+    } else if (!EMAIL_RULE.test(email)) {
+      newErrors.email =
+        "Masukkan email yang valid";
     }
 
     if (!form.tanggalLahir) {
@@ -171,18 +312,20 @@ export default function EditUser() {
     }
 
     if (!form.roles) {
-      newErrors.roles = "Pilih role terlebih dahulu";
+      newErrors.roles =
+        "Pilih role terlebih dahulu";
     }
 
     return newErrors;
   };
 
   const isValid =
-    Object.keys(validate()).length === 0;
-
-  // ==========================================
-  // SUBMIT UPDATE
-  // ==========================================
+    form.nama.trim().length >= 3 &&
+    form.noHp.length >= 9 &&
+    form.noHp.length <= 13 &&
+    EMAIL_RULE.test(form.email.trim()) &&
+    form.tanggalLahir !== "" &&
+    form.roles !== "";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -192,57 +335,116 @@ export default function EditUser() {
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length > 0) {
-      Swal.fire({
-        icon: "error",
-        title: "Ups, gagal!",
-        text: "Pastikan memasukkan data yang benar. Coba lagi!",
+      await Swal.fire({
+        icon: "warning",
+        title: "Data belum lengkap",
+        text:
+          "Pastikan semua data sudah diisi dengan benar.",
         confirmButtonColor: BLUE,
       });
 
       return;
     }
 
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      await Swal.fire({
+        icon: "error",
+        title: "Belum Login",
+        text:
+          "Token login tidak ditemukan. Silakan login kembali.",
+        confirmButtonColor: BLUE,
+      });
+
+      navigate("/login");
+      return;
+    }
+
     try {
       setSaving(true);
 
-      await updateUserApi(id, {
+      const payload = {
         title: titleMap[form.title],
         nama: form.nama.trim(),
-        noHp: form.noHp,
-        email: form.email.trim(),
+        noHp: normalizePhoneForApi(form.noHp),
+        email: form.email.trim().toLowerCase(),
         tanggalLahir: form.tanggalLahir,
         roles: form.roles,
-      });
+      };
+
+      console.log("=================================");
+      console.log("PUT EDIT USER");
+      console.log("ID:", id);
+      console.log("PAYLOAD:", payload);
+      console.log("=================================");
+
+      await updateUserApi(id, payload);
 
       await Swal.fire({
         icon: "success",
         title: "Berhasil!",
-        text: "Perubahan data user berhasil disimpan.",
+        text:
+          "Perubahan data user berhasil disimpan.",
         confirmButtonColor: BLUE,
       });
 
       navigate("/Dashboard");
-
     } catch (error) {
-      console.error("Gagal update user:", error);
+      console.error(
+        "Gagal update user:",
+        error
+      );
 
-      Swal.fire({
+      let message =
+        "Gagal memperbarui data user.";
+
+      if (error?.response) {
+        const data =
+          error.response.data;
+
+        message =
+          data?.message ||
+          data?.error ||
+          data?.detail ||
+          `Server error (${error.response.status})`;
+
+        if (error.response.status === 401) {
+          message =
+            "Session login sudah tidak valid. Silakan login kembali.";
+
+          localStorage.removeItem("token");
+          localStorage.removeItem("current_user");
+          localStorage.removeItem("isLoggedIn");
+        }
+
+        if (error.response.status === 404) {
+          message =
+            "User atau endpoint edit tidak ditemukan.";
+        }
+
+        if (error.response.status === 409) {
+          message =
+            data?.message ||
+            "Email sudah digunakan oleh user lain.";
+        }
+      } else if (error?.request) {
+        message =
+          "Railway tidak dapat dihubungi.";
+      } else if (error?.message) {
+        message = error.message;
+      }
+
+      await Swal.fire({
         icon: "error",
         title: "Gagal!",
-        text:
-          error.message ||
-          "Gagal memperbarui data user.",
+        text: message,
         confirmButtonColor: BLUE,
       });
-
     } finally {
       setSaving(false);
     }
   };
-
-  // ==========================================
-  // LOADING
-  // ==========================================
 
   if (loading) {
     return (
@@ -257,10 +459,6 @@ export default function EditUser() {
       </div>
     );
   }
-
-  // ==========================================
-  // USER TIDAK DITEMUKAN
-  // ==========================================
 
   if (notFound) {
     return (
@@ -279,17 +477,15 @@ export default function EditUser() {
             textDecoration: "underline",
             marginLeft: "5px",
           }}
-          onClick={() => navigate("/Dashboard")}
+          onClick={() =>
+            navigate("/Dashboard")
+          }
         >
           Kembali ke daftar user
         </span>
       </div>
     );
   }
-
-  // ==========================================
-  // UI
-  // ==========================================
 
   return (
     <div
@@ -301,8 +497,6 @@ export default function EditUser() {
         width: "100%",
       }}
     >
-      {/* HEADER */}
-
       <div
         style={{
           background: "#101B4C",
@@ -314,8 +508,6 @@ export default function EditUser() {
       >
         CRM For Education Binus
       </div>
-
-      {/* CONTENT */}
 
       <div
         style={{
@@ -355,9 +547,6 @@ export default function EditUser() {
             </h2>
 
             <form onSubmit={handleSubmit}>
-
-              {/* TITLE */}
-
               <div style={{ marginBottom: "18px" }}>
                 <label style={labelStyle}>
                   Title
@@ -392,10 +581,10 @@ export default function EditUser() {
                           form.title === opt
                         }
                         onChange={() =>
-                          setForm({
-                            ...form,
+                          setForm((prev) => ({
+                            ...prev,
                             title: opt,
-                          })
+                          }))
                         }
                       />
 
@@ -404,8 +593,6 @@ export default function EditUser() {
                   ))}
                 </div>
               </div>
-
-              {/* NAMA */}
 
               <div style={{ marginBottom: "18px" }}>
                 <label style={labelStyle}>
@@ -417,7 +604,12 @@ export default function EditUser() {
                   placeholder="Masukkan Nama Lengkap"
                   value={form.nama}
                   onChange={handleChange("nama")}
-                  style={inputStyle}
+                  style={{
+                    ...inputStyle,
+                    borderColor: errors.nama
+                      ? "#DC2626"
+                      : BORDER,
+                  }}
                 />
 
                 {errors.nama && (
@@ -426,8 +618,6 @@ export default function EditUser() {
                   </div>
                 )}
               </div>
-
-              {/* NO HP */}
 
               <div style={{ marginBottom: "18px" }}>
                 <label style={labelStyle}>
@@ -460,12 +650,15 @@ export default function EditUser() {
                   <input
                     type="text"
                     inputMode="numeric"
-                    placeholder="Cth: 812-xxxx-xxxx"
+                    placeholder="812xxxxxxxx"
                     value={form.noHp}
                     onChange={handlePhoneChange}
                     style={{
                       ...inputStyle,
                       flex: 1,
+                      borderColor: errors.noHp
+                        ? "#DC2626"
+                        : BORDER,
                     }}
                   />
                 </div>
@@ -477,8 +670,6 @@ export default function EditUser() {
                 )}
               </div>
 
-              {/* EMAIL */}
-
               <div style={{ marginBottom: "18px" }}>
                 <label style={labelStyle}>
                   Email
@@ -489,7 +680,12 @@ export default function EditUser() {
                   placeholder="Misal: nama@email.com"
                   value={form.email}
                   onChange={handleChange("email")}
-                  style={inputStyle}
+                  style={{
+                    ...inputStyle,
+                    borderColor: errors.email
+                      ? "#DC2626"
+                      : BORDER,
+                  }}
                 />
 
                 {errors.email && (
@@ -498,8 +694,6 @@ export default function EditUser() {
                   </div>
                 )}
               </div>
-
-              {/* TANGGAL LAHIR */}
 
               <div style={{ marginBottom: "18px" }}>
                 <label style={labelStyle}>
@@ -512,27 +706,32 @@ export default function EditUser() {
                   }}
                 >
                   <input
-                    type="text"
-                    placeholder="DD/MM/YYYY"
+                    type="date"
                     value={form.tanggalLahir}
                     onChange={handleChange(
                       "tanggalLahir"
                     )}
                     style={{
                       ...inputStyle,
-                      paddingRight: "36px",
+                      paddingRight: "42px",
+                      borderColor:
+                        errors.tanggalLahir
+                          ? "#DC2626"
+                          : BORDER,
+                      cursor: "pointer",
                     }}
                   />
 
                   <RiCalendarLine
-                    size={16}
+                    size={18}
                     style={{
                       position: "absolute",
                       right: "12px",
                       top: "50%",
                       transform:
                         "translateY(-50%)",
-                      color: "#9CA3AF",
+                      color: "#6B7280",
+                      pointerEvents: "none",
                     }}
                   />
                 </div>
@@ -543,8 +742,6 @@ export default function EditUser() {
                   </div>
                 )}
               </div>
-
-              {/* ROLES */}
 
               <div style={{ marginBottom: "8px" }}>
                 <label style={labelStyle}>
@@ -559,6 +756,10 @@ export default function EditUser() {
                     color: form.roles
                       ? "#111827"
                       : "#9CA3AF",
+                    borderColor: errors.roles
+                      ? "#DC2626"
+                      : BORDER,
+                    cursor: "pointer",
                   }}
                 >
                   <option value="">
@@ -580,8 +781,6 @@ export default function EditUser() {
                   </div>
                 )}
               </div>
-
-              {/* BUTTON */}
 
               <div
                 style={{
@@ -625,7 +824,7 @@ export default function EditUser() {
                       isValid && !saving
                         ? BLUE
                         : GRAY_BTN,
-                    color: "white",
+                    color: "white", 
                     cursor:
                       isValid && !saving
                         ? "pointer"
@@ -637,7 +836,6 @@ export default function EditUser() {
                     : "SIMPAN PERUBAHAN"}
                 </button>
               </div>
-
             </form>
           </div>
         </div>

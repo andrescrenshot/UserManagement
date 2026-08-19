@@ -1,18 +1,7 @@
 import bcrypt
-import jwt
-import os
-
 from pony.orm import db_session
 
 from .model import User
-
-
-JWT_SECRET = os.environ.get(
-    "JWT_SECRET",
-    "user-management-secret-2026"
-)
-
-JWT_ALGORITHM = "HS256"
 
 
 def user_to_dict(user):
@@ -26,22 +15,6 @@ def user_to_dict(user):
         "roles": user.roles,
         "status": user.status
     }
-
-
-def generate_token(user):
-    payload = {
-        "id": user.id_user,
-        "email": user.email,
-        "roles": user.roles
-    }
-
-    token = jwt.encode(
-        payload,
-        JWT_SECRET,
-        algorithm=JWT_ALGORITHM
-    )
-
-    return token
 
 
 @db_session
@@ -103,11 +76,4 @@ def login_user(email, password):
     if not password_valid:
         return None
 
-    user_data = user_to_dict(user)
-
-    token = generate_token(user)
-
-    return {
-        "token": token,
-        "user": user_data
-    }
+    return user_to_dict(user)

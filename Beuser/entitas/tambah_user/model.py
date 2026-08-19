@@ -3,10 +3,7 @@ from db import db
 
 
 class TambahUser(db.Entity):
-    """Model khusus data user Dashboard.
 
-    TIDAK berhubungan dengan entitas User yang dipakai untuk Login.
-    """
     id = PrimaryKey(int, auto=True)
     title = Required(str, 2)
     nama = Required(str, 100)
