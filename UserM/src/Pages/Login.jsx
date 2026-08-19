@@ -118,19 +118,16 @@ export default function Login() {
     setSubmitError("");
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/auth/login`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: email.trim(),
-            password: password,
-          }),
-        }
-      );
+      const response = await fetch(`${API_URL}/api/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password,
+        }),
+      });
 
       const text = await response.text();
 
@@ -259,39 +256,52 @@ export default function Login() {
 
   return (
     <div
-      className="d-flex align-items-center justify-content-center"
+      className="login-page d-flex align-items-center justify-content-center"
       style={{
         minHeight: "100vh",
+        width: "100%",
         backgroundColor: "#EEF1FB",
-        padding: "24px",
+        padding: "20px",
       }}
     >
       <div
-        className="bg-white shadow-sm"
+        className="login-card bg-white shadow-sm"
         style={{
           width: "100%",
-          maxWidth: "500px",
-          borderRadius: "16px",
-          padding: "35px",
+          maxWidth: "480px",
+          borderRadius: "20px",
+          padding: "clamp(24px, 5vw, 40px)",
         }}
       >
         <div className="text-center mb-4">
-          <h3
+          <h2
             className="fw-bold mb-2"
-            style={{ color: "#0B2B8E" }}
+            style={{
+              color: "#0B2B8E",
+              fontSize: "clamp(25px, 6vw, 32px)",
+            }}
           >
             Masuk
-          </h3>
+          </h2>
 
-          <p className="text-muted mb-0">
+          <p
+            className="text-muted mb-0"
+            style={{
+              fontSize: "14px",
+            }}
+          >
             Silakan masuk ke akun kamu
           </p>
         </div>
 
         {submitError && (
           <div
-            className="alert alert-danger py-2 small"
+            className="alert alert-danger py-2 px-3 small"
             role="alert"
+            style={{
+              borderRadius: "10px",
+              fontSize: "13px",
+            }}
           >
             {submitError}
           </div>
@@ -302,6 +312,9 @@ export default function Login() {
             <label
               htmlFor="loginEmail"
               className="form-label fw-semibold"
+              style={{
+                fontSize: "14px",
+              }}
             >
               Email
             </label>
@@ -315,9 +328,12 @@ export default function Login() {
               placeholder="Masukkan email"
               value={email}
               onChange={handleEmailChange}
+              autoComplete="email"
               style={{
-                borderRadius: "8px",
-                padding: "11px 12px",
+                borderRadius: "10px",
+                padding: "12px 13px",
+                fontSize: "14px",
+                minHeight: "46px",
               }}
             />
 
@@ -332,17 +348,16 @@ export default function Login() {
             <label
               htmlFor="loginPassword"
               className="form-label fw-semibold"
+              style={{
+                fontSize: "14px",
+              }}
             >
               Kata Sandi
             </label>
 
             <div className="position-relative">
               <input
-                type={
-                  showPassword
-                    ? "text"
-                    : "password"
-                }
+                type={showPassword ? "text" : "password"}
                 id="loginPassword"
                 className={`form-control ${
                   errors.password ? "is-invalid" : ""
@@ -350,26 +365,33 @@ export default function Login() {
                 placeholder="Masukkan kata sandi"
                 value={password}
                 onChange={handlePasswordChange}
+                autoComplete="current-password"
                 style={{
-                  borderRadius: "8px",
-                  padding: "11px 42px 11px 12px",
+                  borderRadius: "10px",
+                  padding: "12px 45px 12px 13px",
+                  fontSize: "14px",
+                  minHeight: "46px",
                 }}
               />
 
               <button
                 type="button"
                 className="btn btn-sm position-absolute text-muted"
+                aria-label={
+                  showPassword
+                    ? "Sembunyikan kata sandi"
+                    : "Tampilkan kata sandi"
+                }
                 style={{
                   border: "none",
                   background: "none",
                   right: "5px",
                   top: "50%",
                   transform: "translateY(-50%)",
+                  padding: "8px",
                 }}
                 onClick={() =>
-                  setShowPassword(
-                    (prev) => !prev
-                  )
+                  setShowPassword((prev) => !prev)
                 }
               >
                 <i
@@ -378,6 +400,9 @@ export default function Login() {
                       ? "bi-eye-slash"
                       : "bi-eye"
                   }`}
+                  style={{
+                    fontSize: "18px",
+                  }}
                 ></i>
               </button>
             </div>
@@ -389,13 +414,14 @@ export default function Login() {
             )}
           </div>
 
-          <div className="text-end mb-3 mt-2">
+          <div className="text-end mt-2 mb-4">
             <button
               type="button"
-              className="btn p-0 small text-dark text-decoration-none fw-semibold"
-              onClick={() =>
-                navigate("/register")
-              }
+              className="btn p-0 text-dark text-decoration-none fw-semibold"
+              style={{
+                fontSize: "13px",
+              }}
+              onClick={() => navigate("/register")}
             >
               Lupa Sandi?
             </button>
@@ -403,7 +429,7 @@ export default function Login() {
 
           <button
             type="submit"
-            className="btn w-100 fw-semibold text-white text-uppercase"
+            className="btn w-100 fw-semibold text-white"
             disabled={submitting}
             style={{
               backgroundColor:
@@ -412,30 +438,55 @@ export default function Login() {
                   : "#A0A3BD",
               borderRadius: "999px",
               padding: "12px 0",
-              letterSpacing: "0.5px",
+              minHeight: "46px",
+              letterSpacing: "0.4px",
               border: "none",
+              fontSize: "14px",
               transition:
                 "background-color 0.2s ease",
             }}
           >
-            {submitting
-              ? "Memproses..."
-              : "Masuk"}
+            {submitting ? "Memproses..." : "Masuk"}
           </button>
 
-          <p
-            className="text-center text-muted mt-3 mb-0"
+          <div
+            className="text-center mt-4"
             style={{
-              fontSize: "11px",
-              lineHeight: 1.5,
+              fontSize: "14px",
             }}
           >
-            Dengan masuk ke dalam akun, kamu
-            menyetujui{" "}
+            <span className="text-muted">
+              Belum punya akun?
+            </span>{" "}
+            <button
+              type="button"
+              onClick={() => navigate("/register")}
+              className="btn p-0 fw-bold"
+              style={{
+                color: "#0B2B8E",
+                fontSize: "14px",
+                border: "none",
+                background: "none",
+              }}
+            >
+              Daftar sekarang
+            </button>
+          </div>
+
+          <p
+            className="text-center text-muted mt-4 mb-0"
+            style={{
+              fontSize: "11px",
+              lineHeight: 1.6,
+            }}
+          >
+            Dengan masuk ke dalam akun, kamu menyetujui{" "}
             <a
               href="#"
               className="fw-semibold text-decoration-none"
-              style={{ color: "#0B2B8E" }}
+              style={{
+                color: "#0B2B8E",
+              }}
             >
               Syarat &amp; Ketentuan
             </a>{" "}
@@ -443,7 +494,9 @@ export default function Login() {
             <a
               href="#"
               className="fw-semibold text-decoration-none"
-              style={{ color: "#0B2B8E" }}
+              style={{
+                color: "#0B2B8E",
+              }}
             >
               Kebijakan Privasi
             </a>{" "}
@@ -453,7 +506,9 @@ export default function Login() {
 
         <p
           className="text-center text-muted mt-4 mb-0"
-          style={{ fontSize: "11px" }}
+          style={{
+            fontSize: "11px",
+          }}
         >
           ©Copyright 2026
         </p>
