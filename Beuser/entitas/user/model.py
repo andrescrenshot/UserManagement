@@ -1,26 +1,64 @@
-from pony.orm import PrimaryKey, Required, Optional
+from pony.orm import (
+    PrimaryKey,
+    Required,
+    Optional
+)
 
 from db import db
 
 
 class User(db.Entity):
 
-    id_user = PrimaryKey(int, auto=True)
+    id_user = PrimaryKey(
+        int,
+        auto=True
+    )
 
-    title = Required(str, 2)
+    title = Required(
+        str,
+        2
+    )
 
-    nama = Required(str, 100)
+    nama = Required(
+        str,
+        100
+    )
 
-    noHp = Required(str, 30)
+    noHp = Required(
+        str,
+        30
+    )
 
-    email = Required(str, 100, unique=True)
+    email = Required(
+        str,
+        100,
+        unique=True
+    )
 
-    tanggalLahir = Required(str, 20)
+    tanggalLahir = Required(
+        str,
+        20
+    )
 
-    password = Required(str, 255)
+    password = Required(
+        str,
+        255
+    )
 
-    roles = Required(str, 30, default="Member")
+    roles = Required(
+        str,
+        30,
+        default="Member"
+    )
 
-    status = Required(str, 20, default="active")
+    status = Required(
+        str,
+        20,
+        default="active"
+    )
 
-    profile_photo = Optional(str, 500, nullable=True)
+    profile_photo = Optional(
+        str,
+        500,
+        nullable=True
+    )

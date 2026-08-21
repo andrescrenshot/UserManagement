@@ -21,3 +21,8 @@ def register_routes(app):
         "/api/user",
         ProfileResource()
     )
+
+    app.add_route(
+        "/api/user/profile-photo",
+        ProfileResource()
+    )

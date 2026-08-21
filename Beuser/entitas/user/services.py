@@ -21,6 +21,7 @@ def user_to_dict(user):
 
     return {
         "id": user.id_user,
+        "id_user": user.id_user,
         "title": user.title,
         "nama": user.nama,
         "noHp": user.noHp,
@@ -32,18 +33,27 @@ def user_to_dict(user):
     }
 
 
-def create_token(user, remember_me=False):
+def create_token(
+    user,
+    remember_me=False
+):
 
     if remember_me:
-        token_duration = timedelta(days=30)
+        token_duration = timedelta(
+            days=30
+        )
     else:
-        token_duration = timedelta(hours=24)
+        token_duration = timedelta(
+            hours=24
+        )
 
     payload = {
         "id": user.id_user,
         "email": user.email,
         "roles": user.roles,
-        "exp": datetime.now(timezone.utc) + token_duration
+        "exp": datetime.now(
+            timezone.utc
+        ) + token_duration
     }
 
     return jwt.encode(
@@ -73,7 +83,11 @@ def register_user(
     if existing_user:
         return None
 
-    if title not in ["Tn", "Ny", "Nn"]:
+    if title not in [
+        "Tn",
+        "Ny",
+        "Nn"
+    ]:
         return None
 
     hashed_password = bcrypt.hashpw(
@@ -88,7 +102,7 @@ def register_user(
         email=email,
         tanggalLahir=tanggalLahir,
         password=hashed_password,
-        roles=roles,
+        roles=roles or "Member",
         status="active"
     )
 
@@ -114,15 +128,20 @@ def login_user(
     if user.status != "active":
         return None
 
-    password_valid = bcrypt.checkpw(
-        password.encode("utf-8"),
-        user.password.encode("utf-8")
-    )
+    try:
+        password_valid = bcrypt.checkpw(
+            password.encode("utf-8"),
+            user.password.encode("utf-8")
+        )
+    except Exception:
+        return None
 
     if not password_valid:
         return None
 
-    user_data = user_to_dict(user)
+    user_data = user_to_dict(
+        user
+    )
 
     token = create_token(
         user,
@@ -133,3 +152,38 @@ def login_user(
         "token": token,
         "user": user_data
     }
+
+
+@db_session
+def get_user_by_id(user_id):
+
+    user = User.get(
+        id_user=user_id
+    )
+
+    if not user:
+        return None
+
+    return user_to_dict(
+        user
+    )
+
+
+@db_session
+def update_profile_photo(
+    user_id,
+    profile_photo
+):
+
+    user = User.get(
+        id_user=user_id
+    )
+
+    if not user:
+        return None
+
+    user.profile_photo = profile_photo
+
+    return user_to_dict(
+        user
+    )

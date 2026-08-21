@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 const API_URL = import.meta.env.VITE_API_URL;
 
 export default function Login() {
@@ -119,20 +118,17 @@ export default function Login() {
     setSubmitError("");
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/auth/login`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: email.trim(),
-            password: password,
-            rememberMe: rememberMe,
-          }),
-        }
-      );
+      const response = await fetch(`${API_URL}/api/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+          rememberMe,
+        }),
+      });
 
       const text = await response.text();
 
@@ -216,15 +212,15 @@ export default function Login() {
         return;
       }
 
-      /*
-       * TIDAK menggunakan localStorage.
-       * Token hanya disimpan selama tab/session browser aktif.
-       */
       sessionStorage.setItem("token", token);
+      sessionStorage.setItem("current_user", JSON.stringify(user));
+      sessionStorage.setItem("isLoggedIn", "true");
 
       console.log("TOKEN LOGIN:", token);
       console.log("USER LOGIN:", user);
       console.log("REMEMBER ME:", rememberMe);
+
+      window.dispatchEvent(new Event("user-login"));
 
       setSubmitting(false);
 
@@ -493,7 +489,6 @@ export default function Login() {
             <span className="text-muted">
               Belum punya akun?
             </span>{" "}
-
             <button
               type="button"
               onClick={() => navigate("/register")}

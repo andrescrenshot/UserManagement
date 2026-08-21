@@ -13,7 +13,6 @@ import Swal from "sweetalert2";
 
 const BLUE = "#1226C4";
 const BORDER = "#E5E7EB";
-
 const API_URL = import.meta.env.VITE_API_URL;
 
 export default function Profile() {
@@ -62,6 +61,8 @@ export default function Profile() {
 
         if (response.status === 401) {
           sessionStorage.removeItem("token");
+          sessionStorage.removeItem("current_user");
+          sessionStorage.removeItem("isLoggedIn");
 
           await Swal.fire({
             icon: "warning",
@@ -95,6 +96,13 @@ export default function Profile() {
         }
 
         setUser(userData);
+
+        sessionStorage.setItem(
+          "current_user",
+          JSON.stringify(userData)
+        );
+
+        window.dispatchEvent(new Event("user-updated"));
       } catch (error) {
         console.error("Gagal mengambil profile:", error);
 
@@ -116,7 +124,14 @@ export default function Profile() {
 
   const handleLogout = () => {
     sessionStorage.removeItem("token");
-    navigate("/");
+    sessionStorage.removeItem("current_user");
+    sessionStorage.removeItem("isLoggedIn");
+
+    window.dispatchEvent(new Event("user-logout"));
+
+    navigate("/", {
+      replace: true,
+    });
   };
 
   const getInitials = () => {
@@ -284,6 +299,8 @@ export default function Profile() {
 
       if (response.status === 401) {
         sessionStorage.removeItem("token");
+        sessionStorage.removeItem("current_user");
+        sessionStorage.removeItem("isLoggedIn");
 
         await Swal.fire({
           icon: "warning",
@@ -304,17 +321,41 @@ export default function Profile() {
         );
       }
 
-      if (data?.user) {
+      const updatedUser =
+        data?.user ||
+        data?.data?.user ||
+        null;
+
+      if (updatedUser) {
         setUser((prev) => ({
           ...prev,
-          ...data.user,
+          ...updatedUser,
         }));
+
+        sessionStorage.setItem(
+          "current_user",
+          JSON.stringify({
+            ...user,
+            ...updatedUser,
+          })
+        );
       } else if (data?.profile_photo) {
-        setUser((prev) => ({
-          ...prev,
-          profile_photo: data.profile_photo,
-        }));
+        setUser((prev) => {
+          const updated = {
+            ...prev,
+            profile_photo: data.profile_photo,
+          };
+
+          sessionStorage.setItem(
+            "current_user",
+            JSON.stringify(updated)
+          );
+
+          return updated;
+        });
       }
+
+      window.dispatchEvent(new Event("user-updated"));
 
       await Swal.fire({
         icon: "success",
@@ -369,8 +410,7 @@ export default function Profile() {
   const nama = user?.nama || "User";
   const email = user?.email || "";
   const noHp = user?.noHp || "-";
-  const tanggalLahir =
-    user?.tanggalLahir || "-";
+  const tanggalLahir = user?.tanggalLahir || "-";
   const roles =
     user?.roles ||
     user?.role ||
@@ -673,11 +713,7 @@ export default function Profile() {
   );
 }
 
-function InfoItem({
-  icon,
-  label,
-  value,
-}) {
+function InfoItem({ icon, label, value }) {
   return (
     <div
       style={{

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Modal } from "react-bootstrap";
-import md5 from "md5";
 
 import {
   RiDashboardLine,
@@ -15,6 +14,8 @@ import {
   RiLogoutBoxRLine,
   RiUserLine,
 } from "react-icons/ri";
+
+const API_URL = import.meta.env.VITE_API_URL;
 
 const SideBar = ({ menuAktifDefault = "beranda" }) => {
   const navigate = useNavigate();
@@ -30,19 +31,63 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    const loadUser = () => {
+    const loadUser = async () => {
       try {
-        const currentUser =
-          localStorage.getItem("current_user");
+        const cachedUser =
+          sessionStorage.getItem("current_user");
 
-        if (currentUser) {
-          const parsedUser = JSON.parse(currentUser);
+        if (cachedUser) {
+          setUser(JSON.parse(cachedUser));
+        }
 
-          setUser(parsedUser);
+        const token =
+          sessionStorage.getItem("token");
+
+        if (!token || !API_URL) {
+          return;
+        }
+
+        const response = await fetch(
+          `${API_URL}/api/user`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          return;
+        }
+
+        const text = await response.text();
+
+        let data = {};
+
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch {
+          data = {};
+        }
+
+        const userData =
+          data?.user ||
+          data?.data?.user ||
+          data?.data ||
+          data;
+
+        if (userData?.email) {
+          setUser(userData);
+
+          sessionStorage.setItem(
+            "current_user",
+            JSON.stringify(userData)
+          );
         }
       } catch (error) {
         console.error(
-          "Gagal membaca current_user:",
+          "Gagal mengambil data user:",
           error
         );
       }
@@ -51,30 +96,51 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
     loadUser();
 
     window.addEventListener(
-      "storage",
+      "user-login",
+      loadUser
+    );
+
+    window.addEventListener(
+      "user-updated",
+      loadUser
+    );
+
+    window.addEventListener(
+      "user-logout",
       loadUser
     );
 
     return () => {
       window.removeEventListener(
-        "storage",
+        "user-login",
+        loadUser
+      );
+
+      window.removeEventListener(
+        "user-updated",
+        loadUser
+      );
+
+      window.removeEventListener(
+        "user-logout",
         loadUser
       );
     };
   }, []);
 
   const getProfileImage = () => {
-    if (!user?.email) {
-      return "https://www.gravatar.com/avatar/?d=mp&s=200";
+    if (!user?.profile_photo) {
+      return null;
     }
 
-    const email = user.email
-      .trim()
-      .toLowerCase();
+    if (
+      user.profile_photo.startsWith("http://") ||
+      user.profile_photo.startsWith("https://")
+    ) {
+      return user.profile_photo;
+    }
 
-    const hash = md5(email);
-
-    return `https://www.gravatar.com/avatar/${hash}?d=mp&s=200`;
+    return `${API_URL}${user.profile_photo}`;
   };
 
   const getInitial = () => {
@@ -98,8 +164,7 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
     cursor: "pointer",
     color: "white",
     fontSize: "14px",
-    fontWeight:
-      menuAktif === key ? 600 : 400,
+    fontWeight: menuAktif === key ? 600 : 400,
     background:
       menuAktif === key
         ? "rgba(255,255,255,0.18)"
@@ -120,8 +185,7 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
         ? "white"
         : "rgba(255,255,255,0.75)",
     fontSize: "13px",
-    fontWeight:
-      menuAktif === key ? 600 : 400,
+    fontWeight: menuAktif === key ? 600 : 400,
     background:
       menuAktif === key
         ? "rgba(255,255,255,0.18)"
@@ -144,18 +208,22 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
   };
 
   const handleConfirmLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("current_user");
-    localStorage.removeItem("isLoggedIn");
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("current_user");
+    sessionStorage.removeItem("isLoggedIn");
 
     setUser(null);
     setProfileOpen(false);
     setShowLogoutConfirm(false);
 
-    navigate("/login", {
+    window.dispatchEvent(new Event("user-logout"));
+
+    navigate("/", {
       replace: true,
     });
   };
+
+  const profileImage = getProfileImage();
 
   return (
     <>
@@ -240,8 +308,7 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
                 transform: kelasOpen
                   ? "rotate(180deg)"
                   : "rotate(0deg)",
-                transition:
-                  "transform 0.2s",
+                transition: "transform 0.2s",
               }}
             />
           </div>
@@ -257,9 +324,7 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
                   setMenuAktif("presensi");
                   navigate("/kelasku");
                 }}
-                style={subItemStyle(
-                  "presensi"
-                )}
+                style={subItemStyle("presensi")}
               >
                 <RiFileList3Line size={20} />
                 Presensi Peserta
@@ -270,9 +335,7 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
                   setMenuAktif("input-nilai");
                   navigate("/penilaian");
                 }}
-                style={subItemStyle(
-                  "input-nilai"
-                )}
+                style={subItemStyle("input-nilai")}
               >
                 <RiBarChartLine size={20} />
                 Input Nilai
@@ -283,9 +346,7 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
                   setMenuAktif("sertifikat");
                   navigate("/sertifikat");
                 }}
-                style={subItemStyle(
-                  "sertifikat"
-                )}
+                style={subItemStyle("sertifikat")}
               >
                 <RiAwardLine size={20} />
                 Sertifikat
@@ -324,9 +385,9 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
                 flexShrink: 0,
               }}
             >
-              {user?.email ? (
+              {profileImage ? (
                 <img
-                  src={getProfileImage()}
+                  src={profileImage}
                   alt="Profile"
                   style={{
                     width: "100%",
@@ -374,8 +435,7 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
                 transform: profileOpen
                   ? "rotate(180deg)"
                   : "rotate(0deg)",
-                transition:
-                  "transform 0.2s",
+                transition: "transform 0.2s",
               }}
             />
           </div>
@@ -490,8 +550,7 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
               style={{
                 backgroundColor: "#fff",
                 color: "#0B2B8E",
-                border:
-                  "1px solid #0B2B8E",
+                border: "1px solid #0B2B8E",
                 borderRadius: "8px",
                 padding: "10px 0",
               }}
