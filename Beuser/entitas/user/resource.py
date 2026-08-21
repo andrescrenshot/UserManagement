@@ -1,6 +1,11 @@
+import os
+import jwt
 import falcon
 
+from pony.orm import db_session
+
 from .services import register_user, login_user
+from .model import User
 
 
 class RegisterResource:
@@ -185,6 +190,118 @@ class LoginResource:
                 "message": "Login berhasil",
                 "token": result["token"],
                 "user": result["user"]
+            }
+
+        except Exception as e:
+
+            resp.status = falcon.HTTP_500
+
+            resp.media = {
+                "success": False,
+                "message": "Terjadi kesalahan pada server",
+                "error": str(e)
+            }
+
+
+class ProfileResource:
+
+    @db_session
+    def on_get(self, req, resp):
+
+        try:
+
+            auth_header = req.get_header(
+                "Authorization"
+            )
+
+            if not auth_header:
+                resp.status = falcon.HTTP_401
+                resp.media = {
+                    "success": False,
+                    "message": "Token tidak ditemukan"
+                }
+                return
+
+            if auth_header.startswith("Bearer "):
+                token = auth_header[7:]
+
+            elif auth_header.startswith("jwt "):
+                token = auth_header[4:]
+
+            else:
+                resp.status = falcon.HTTP_401
+                resp.media = {
+                    "success": False,
+                    "message": "Format token tidak valid"
+                }
+                return
+
+            secret_key = os.getenv(
+                "JWT_SECRET",
+                "secret"
+            )
+
+            payload = jwt.decode(
+                token,
+                secret_key,
+                algorithms=["HS256"]
+            )
+
+            user_id = payload.get("id")
+
+            if not user_id:
+                resp.status = falcon.HTTP_401
+                resp.media = {
+                    "success": False,
+                    "message": "ID user tidak ditemukan"
+                }
+                return
+
+            user = User.get(
+                id_user=user_id
+            )
+
+            if not user:
+                resp.status = falcon.HTTP_404
+                resp.media = {
+                    "success": False,
+                    "message": "User tidak ditemukan"
+                }
+                return
+
+            resp.status = falcon.HTTP_200
+
+            resp.media = {
+                "success": True,
+                "user": {
+                    "id_user": user.id_user,
+                    "title": user.title,
+                    "nama": user.nama,
+                    "noHp": user.noHp,
+                    "email": user.email,
+                    "tanggalLahir": user.tanggalLahir,
+                    "roles": user.roles,
+                    "status": user.status,
+                    "profile_photo": user.profile_photo
+                }
+            }
+
+        except jwt.ExpiredSignatureError:
+
+            resp.status = falcon.HTTP_401
+
+            resp.media = {
+                "success": False,
+                "message": "Token sudah expired"
+            }
+
+        except jwt.InvalidTokenError:
+
+            resp.status = falcon.HTTP_401
+
+            resp.media = {
+                "success": False,
+                "message": "Token tidak valid"
             }
 
         except Exception as e:

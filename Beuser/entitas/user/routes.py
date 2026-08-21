@@ -1,4 +1,8 @@
-from .resource import RegisterResource, LoginResource
+from .resource import (
+    RegisterResource,
+    LoginResource,
+    ProfileResource
+)
 
 
 def register_routes(app):
@@ -11,4 +15,9 @@ def register_routes(app):
     app.add_route(
         "/api/auth/login",
         LoginResource()
+    )
+
+    app.add_route(
+        "/api/user",
+        ProfileResource()
     )

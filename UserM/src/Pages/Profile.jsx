@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   RiMailLine,
@@ -6,6 +6,7 @@ import {
   RiPhoneLine,
   RiCalendarLine,
   RiShieldUserLine,
+  RiCameraLine,
 } from "react-icons/ri";
 import md5 from "md5";
 import Swal from "sweetalert2";
@@ -17,9 +18,12 @@ const API_URL = import.meta.env.VITE_API_URL;
 
 export default function Profile() {
   const navigate = useNavigate();
+  const fileInputRef = useRef(null);
 
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [preview, setPreview] = useState(null);
 
   useEffect(() => {
     const getProfile = async () => {
@@ -37,16 +41,12 @@ export default function Profile() {
       }
 
       try {
-        const response = await fetch(
-          `${API_URL}/api/user`,
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
+        const response = await fetch(`${API_URL}/api/user`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
         const text = await response.text();
 
@@ -96,10 +96,7 @@ export default function Profile() {
 
         setUser(userData);
       } catch (error) {
-        console.error(
-          "Gagal mengambil profile:",
-          error
-        );
+        console.error("Gagal mengambil profile:", error);
 
         await Swal.fire({
           icon: "error",
@@ -119,8 +116,228 @@ export default function Profile() {
 
   const handleLogout = () => {
     sessionStorage.removeItem("token");
-
     navigate("/");
+  };
+
+  const getInitials = () => {
+    const nama = user?.nama || "User";
+
+    const words = nama
+      .trim()
+      .split(" ")
+      .filter(Boolean);
+
+    if (words.length === 1) {
+      return words[0]
+        .substring(0, 2)
+        .toUpperCase();
+    }
+
+    return (
+      words[0].charAt(0) +
+      words[1].charAt(0)
+    ).toUpperCase();
+  };
+
+  const getGravatar = () => {
+    if (!user?.email) {
+      return null;
+    }
+
+    const emailHash = md5(
+      user.email.trim().toLowerCase()
+    );
+
+    return `https://www.gravatar.com/avatar/${emailHash}?s=300&d=404`;
+  };
+
+  const getPhotoUrl = () => {
+    if (preview) {
+      return preview;
+    }
+
+    if (user?.profile_photo) {
+      if (
+        user.profile_photo.startsWith("http://") ||
+        user.profile_photo.startsWith("https://")
+      ) {
+        return user.profile_photo;
+      }
+
+      return `${API_URL}${user.profile_photo}`;
+    }
+
+    return getGravatar();
+  };
+
+  const handleSelectPhoto = () => {
+    if (uploading) {
+      return;
+    }
+
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      await Swal.fire({
+        icon: "warning",
+        title: "File Tidak Valid",
+        text: "Silakan pilih file gambar.",
+        confirmButtonColor: "#0B2B8E",
+      });
+
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      await Swal.fire({
+        icon: "warning",
+        title: "File Terlalu Besar",
+        text: "Ukuran foto maksimal 5 MB.",
+        confirmButtonColor: "#0B2B8E",
+      });
+
+      event.target.value = "";
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+
+    setPreview(previewUrl);
+
+    const result = await Swal.fire({
+      icon: "question",
+      title: "Gunakan Foto Ini?",
+      text: file.name,
+      showCancelButton: true,
+      confirmButtonText: "Upload",
+      cancelButtonText: "Batal",
+      confirmButtonColor: "#1226C4",
+    });
+
+    if (!result.isConfirmed) {
+      URL.revokeObjectURL(previewUrl);
+      setPreview(null);
+      event.target.value = "";
+      return;
+    }
+
+    await uploadPhoto(file);
+  };
+
+  const uploadPhoto = async (file) => {
+    const token = sessionStorage.getItem("token");
+
+    if (!token) {
+      navigate("/");
+      return;
+    }
+
+    if (!API_URL) {
+      await Swal.fire({
+        icon: "error",
+        title: "API Tidak Ditemukan",
+        text: "VITE_API_URL belum dikonfigurasi.",
+        confirmButtonColor: "#0B2B8E",
+      });
+
+      return;
+    }
+
+    try {
+      setUploading(true);
+
+      const formData = new FormData();
+
+      formData.append("profile_photo", file);
+
+      const response = await fetch(
+        `${API_URL}/api/user/profile-photo`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        }
+      );
+
+      const text = await response.text();
+
+      let data = {};
+
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = {};
+      }
+
+      console.log("UPLOAD PHOTO RESPONSE:", data);
+
+      if (response.status === 401) {
+        sessionStorage.removeItem("token");
+
+        await Swal.fire({
+          icon: "warning",
+          title: "Sesi Berakhir",
+          text: "Silakan login kembali.",
+          confirmButtonColor: "#0B2B8E",
+        });
+
+        navigate("/");
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message ||
+            data?.error ||
+            `Upload gagal (${response.status})`
+        );
+      }
+
+      if (data?.user) {
+        setUser((prev) => ({
+          ...prev,
+          ...data.user,
+        }));
+      } else if (data?.profile_photo) {
+        setUser((prev) => ({
+          ...prev,
+          profile_photo: data.profile_photo,
+        }));
+      }
+
+      await Swal.fire({
+        icon: "success",
+        title: "Berhasil",
+        text: "Foto profile berhasil diperbarui.",
+        confirmButtonColor: "#1226C4",
+      });
+    } catch (error) {
+      console.error("Gagal upload foto:", error);
+
+      setPreview(null);
+
+      await Swal.fire({
+        icon: "error",
+        title: "Upload Gagal",
+        text:
+          error.message ||
+          "Foto profile gagal diupload.",
+        confirmButtonColor: "#0B2B8E",
+      });
+    } finally {
+      setUploading(false);
+    }
   };
 
   if (loading) {
@@ -159,37 +376,7 @@ export default function Profile() {
     user?.role ||
     "Member";
 
-  const getInitials = () => {
-    const words = nama
-      .trim()
-      .split(" ")
-      .filter(Boolean);
-
-    if (words.length === 1) {
-      return words[0]
-        .substring(0, 2)
-        .toUpperCase();
-    }
-
-    return (
-      words[0].charAt(0) +
-      words[1].charAt(0)
-    ).toUpperCase();
-  };
-
-  const getProfilePhoto = () => {
-    if (!email) {
-      return null;
-    }
-
-    const emailHash = md5(
-      email.trim().toLowerCase()
-    );
-
-    return `https://www.gravatar.com/avatar/${emailHash}?s=300&d=404`;
-  };
-
-  const profilePhoto = getProfilePhoto();
+  const profilePhoto = getPhotoUrl();
 
   return (
     <div
@@ -257,50 +444,129 @@ export default function Profile() {
                 marginBottom: "20px",
               }}
             >
-              {profilePhoto ? (
-                <img
-                  src={profilePhoto}
-                  alt={nama}
-                  onError={(e) => {
-                    e.currentTarget.style.display =
-                      "none";
+              <div
+                style={{
+                  position: "relative",
+                  width: "120px",
+                  height: "120px",
+                }}
+              >
+                {profilePhoto ? (
+                  <img
+                    src={profilePhoto}
+                    alt={nama}
+                    onError={(e) => {
+                      e.currentTarget.style.display =
+                        "none";
 
-                    if (
-                      e.currentTarget.nextSibling
-                    ) {
-                      e.currentTarget.nextSibling.style.display =
-                        "flex";
-                    }
-                  }}
+                      if (
+                        e.currentTarget.nextSibling
+                      ) {
+                        e.currentTarget.nextSibling.style.display =
+                          "flex";
+                      }
+                    }}
+                    style={{
+                      width: "120px",
+                      height: "120px",
+                      borderRadius: "50%",
+                      objectFit: "cover",
+                      border: "5px solid white",
+                      display: "block",
+                      background: BLUE,
+                    }}
+                  />
+                ) : null}
+
+                <div
                   style={{
                     width: "120px",
                     height: "120px",
                     borderRadius: "50%",
-                    objectFit: "cover",
                     border: "5px solid white",
-                    display: "block",
+                    background: BLUE,
+                    color: "white",
+                    display: profilePhoto
+                      ? "none"
+                      : "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "34px",
+                    fontWeight: 700,
+                    boxSizing: "border-box",
+                  }}
+                >
+                  {getInitials()}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSelectPhoto}
+                  disabled={uploading}
+                  style={{
+                    position: "absolute",
+                    right: "-4px",
+                    bottom: "-4px",
+                    width: "38px",
+                    height: "38px",
+                    borderRadius: "50%",
+                    border: "3px solid white",
+                    background: BLUE,
+                    color: "white",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: uploading
+                      ? "not-allowed"
+                      : "pointer",
+                    opacity: uploading ? 0.6 : 1,
+                  }}
+                  title="Ubah foto profile"
+                >
+                  <RiCameraLine size={19} />
+                </button>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg,image/webp"
+                  onChange={handleFileChange}
+                  style={{
+                    display: "none",
                   }}
                 />
-              ) : null}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSelectPhoto}
+                disabled={uploading}
+                style={{
+                  marginTop: "10px",
+                  border: "none",
+                  background: "transparent",
+                  color: BLUE,
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  cursor: uploading
+                    ? "not-allowed"
+                    : "pointer",
+                  padding: 0,
+                }}
+              >
+                {uploading
+                  ? "Mengupload..."
+                  : "Ubah Foto Profile"}
+              </button>
 
               <div
                 style={{
-                  width: "120px",
-                  height: "120px",
-                  borderRadius: "50%",
-                  border: "5px solid white",
-                  background: BLUE,
-                  color: "white",
-                  display: profilePhoto
-                    ? "none"
-                    : "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "34px",
-                  fontWeight: 700,
+                  marginTop: "4px",
+                  fontSize: "11px",
+                  color: "#9CA3AF",
                 }}
               >
-                {getInitials()}
+                JPG, PNG, atau WEBP. Maksimal 5 MB.
               </div>
             </div>
 
