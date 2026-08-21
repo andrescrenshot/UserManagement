@@ -1,35 +1,129 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { RiMailLine, RiUserLine, RiPhoneLine, RiCalendarLine, RiShieldUserLine } from "react-icons/ri";
+import {
+  RiMailLine,
+  RiUserLine,
+  RiPhoneLine,
+  RiCalendarLine,
+  RiShieldUserLine,
+} from "react-icons/ri";
 import md5 from "md5";
+import Swal from "sweetalert2";
 
 const BLUE = "#1226C4";
 const BORDER = "#E5E7EB";
+
+const API_URL = import.meta.env.VITE_API_URL;
 
 export default function Profile() {
   const navigate = useNavigate();
 
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const currentUser = localStorage.getItem("current_user");
+    const getProfile = async () => {
+      const token = sessionStorage.getItem("token");
 
-    if (!currentUser) {
-      navigate("/");
-      return;
-    }
+      if (!token) {
+        navigate("/");
+        return;
+      }
 
-    try {
-      const parsedUser = JSON.parse(currentUser);
-      setUser(parsedUser);
-    } catch (error) {
-      console.error("Data user tidak valid:", error);
-      localStorage.removeItem("current_user");
-      navigate("/");
-    }
+      if (!API_URL) {
+        console.error("VITE_API_URL belum dikonfigurasi.");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `${API_URL}/api/user`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        const text = await response.text();
+
+        let data = {};
+
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch {
+          data = {};
+        }
+
+        console.log("PROFILE RESPONSE:", data);
+
+        if (response.status === 401) {
+          sessionStorage.removeItem("token");
+
+          await Swal.fire({
+            icon: "warning",
+            title: "Sesi Berakhir",
+            text: "Silakan login kembali.",
+            confirmButtonColor: "#0B2B8E",
+          });
+
+          navigate("/");
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            data?.message ||
+              data?.error ||
+              `Gagal mengambil profile (${response.status})`
+          );
+        }
+
+        const userData =
+          data?.user ||
+          data?.data?.user ||
+          data?.data ||
+          data;
+
+        if (!userData || !userData.email) {
+          throw new Error(
+            "Data user dari backend tidak ditemukan."
+          );
+        }
+
+        setUser(userData);
+      } catch (error) {
+        console.error(
+          "Gagal mengambil profile:",
+          error
+        );
+
+        await Swal.fire({
+          icon: "error",
+          title: "Gagal Mengambil Profile",
+          text:
+            error.message ||
+            "Tidak dapat mengambil data user dari backend.",
+          confirmButtonColor: "#0B2B8E",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    getProfile();
   }, [navigate]);
 
-  if (!user) {
+  const handleLogout = () => {
+    sessionStorage.removeItem("token");
+
+    navigate("/");
+  };
+
+  if (loading) {
     return (
       <div
         style={{
@@ -42,17 +136,39 @@ export default function Profile() {
     );
   }
 
+  if (!user) {
+    return (
+      <div
+        style={{
+          padding: "40px",
+          textAlign: "center",
+        }}
+      >
+        Data profile tidak ditemukan.
+      </div>
+    );
+  }
+
   const nama = user?.nama || "User";
   const email = user?.email || "";
   const noHp = user?.noHp || "-";
-  const tanggalLahir = user?.tanggalLahir || "-";
-  const roles = user?.roles || user?.role || "Member";
+  const tanggalLahir =
+    user?.tanggalLahir || "-";
+  const roles =
+    user?.roles ||
+    user?.role ||
+    "Member";
 
   const getInitials = () => {
-    const words = nama.trim().split(" ").filter(Boolean);
+    const words = nama
+      .trim()
+      .split(" ")
+      .filter(Boolean);
 
     if (words.length === 1) {
-      return words[0].substring(0, 2).toUpperCase();
+      return words[0]
+        .substring(0, 2)
+        .toUpperCase();
     }
 
     return (
@@ -74,14 +190,6 @@ export default function Profile() {
   };
 
   const profilePhoto = getProfilePhoto();
-
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("current_user");
-    localStorage.removeItem("isLoggedIn");
-
-    navigate("/");
-  };
 
   return (
     <div
@@ -149,23 +257,31 @@ export default function Profile() {
                 marginBottom: "20px",
               }}
             >
-              <img
-                src={profilePhoto}
-                alt={nama}
-                onError={(e) => {
-                  e.currentTarget.style.display = "none";
-                  e.currentTarget.nextSibling.style.display =
-                    "flex";
-                }}
-                style={{
-                  width: "120px",
-                  height: "120px",
-                  borderRadius: "50%",
-                  objectFit: "cover",
-                  border: "5px solid white",
-                  display: "block",
-                }}
-              />
+              {profilePhoto ? (
+                <img
+                  src={profilePhoto}
+                  alt={nama}
+                  onError={(e) => {
+                    e.currentTarget.style.display =
+                      "none";
+
+                    if (
+                      e.currentTarget.nextSibling
+                    ) {
+                      e.currentTarget.nextSibling.style.display =
+                        "flex";
+                    }
+                  }}
+                  style={{
+                    width: "120px",
+                    height: "120px",
+                    borderRadius: "50%",
+                    objectFit: "cover",
+                    border: "5px solid white",
+                    display: "block",
+                  }}
+                />
+              ) : null}
 
               <div
                 style={{
@@ -175,7 +291,9 @@ export default function Profile() {
                   border: "5px solid white",
                   background: BLUE,
                   color: "white",
-                  display: "none",
+                  display: profilePhoto
+                    ? "none"
+                    : "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   fontSize: "34px",
@@ -289,7 +407,11 @@ export default function Profile() {
   );
 }
 
-function InfoItem({ icon, label, value }) {
+function InfoItem({
+  icon,
+  label,
+  value,
+}) {
   return (
     <div
       style={{

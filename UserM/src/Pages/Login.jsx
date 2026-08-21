@@ -11,6 +11,7 @@ export default function Login() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const [errors, setErrors] = useState({
@@ -118,16 +119,20 @@ export default function Login() {
     setSubmitError("");
 
     try {
-      const response = await fetch(`${API_URL}/api/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: email.trim(),
-          password: password,
-        }),
-      });
+      const response = await fetch(
+        `${API_URL}/api/auth/login`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: email.trim(),
+            password: password,
+            rememberMe: rememberMe,
+          }),
+        }
+      );
 
       const text = await response.text();
 
@@ -171,7 +176,6 @@ export default function Login() {
       const user =
         data?.user ||
         data?.data?.user ||
-        data?.data ||
         null;
 
       if (!token) {
@@ -212,17 +216,15 @@ export default function Login() {
         return;
       }
 
-      localStorage.setItem("token", token);
+      /*
+       * TIDAK menggunakan localStorage.
+       * Token hanya disimpan selama tab/session browser aktif.
+       */
+      sessionStorage.setItem("token", token);
 
-      localStorage.setItem(
-        "current_user",
-        JSON.stringify(user)
-      );
-
-      localStorage.setItem("isLoggedIn", "true");
-
-      console.log("TOKEN TERSIMPAN:", token);
+      console.log("TOKEN LOGIN:", token);
       console.log("USER LOGIN:", user);
+      console.log("REMEMBER ME:", rememberMe);
 
       setSubmitting(false);
 
@@ -403,7 +405,7 @@ export default function Login() {
                   style={{
                     fontSize: "18px",
                   }}
-                ></i>
+                />
               </button>
             </div>
 
@@ -414,7 +416,42 @@ export default function Login() {
             )}
           </div>
 
-          <div className="text-end mt-2 mb-4">
+          <div
+            className="d-flex justify-content-between align-items-center mt-3 mb-3"
+          >
+            <div
+              className="d-flex align-items-center"
+              style={{
+                gap: "8px",
+              }}
+            >
+              <input
+                type="checkbox"
+                id="rememberMe"
+                checked={rememberMe}
+                onChange={(e) =>
+                  setRememberMe(e.target.checked)
+                }
+                style={{
+                  width: "16px",
+                  height: "16px",
+                  cursor: "pointer",
+                }}
+              />
+
+              <label
+                htmlFor="rememberMe"
+                style={{
+                  fontSize: "13px",
+                  color: "#6B7280",
+                  cursor: "pointer",
+                  margin: 0,
+                }}
+              >
+                Ingat saya 30 hari
+              </label>
+            </div>
+
             <button
               type="button"
               className="btn p-0 text-dark text-decoration-none fw-semibold"
@@ -442,8 +479,6 @@ export default function Login() {
               letterSpacing: "0.4px",
               border: "none",
               fontSize: "14px",
-              transition:
-                "background-color 0.2s ease",
             }}
           >
             {submitting ? "Memproses..." : "Masuk"}
@@ -458,6 +493,7 @@ export default function Login() {
             <span className="text-muted">
               Belum punya akun?
             </span>{" "}
+
             <button
               type="button"
               onClick={() => navigate("/register")}
@@ -488,7 +524,7 @@ export default function Login() {
                 color: "#0B2B8E",
               }}
             >
-              Syarat &amp; Ketentuan
+              Syarat & Ketentuan
             </a>{" "}
             dan{" "}
             <a

@@ -110,42 +110,76 @@ class RegisterResource:
 class LoginResource:
 
     def on_post(self, req, resp):
+
         try:
+
             data = req.get_media()
 
-            email = data.get("email", "").strip()
-            password = data.get("password", "")
+            email = data.get(
+                "email",
+                ""
+            ).strip()
+
+            password = data.get(
+                "password",
+                ""
+            )
+
+            remember_me = data.get(
+                "rememberMe",
+                False
+            )
+
+            if isinstance(
+                remember_me,
+                str
+            ):
+                remember_me = (
+                    remember_me.lower()
+                    == "true"
+                )
 
             if not email:
+
                 resp.status = falcon.HTTP_400
+
                 resp.media = {
                     "success": False,
                     "message": "Email wajib diisi"
                 }
+
                 return
 
             if not password:
+
                 resp.status = falcon.HTTP_400
+
                 resp.media = {
                     "success": False,
                     "message": "Password wajib diisi"
                 }
+
                 return
 
             result = login_user(
                 email=email,
-                password=password
+                password=password,
+                remember_me=remember_me
             )
 
             if result is None:
+
                 resp.status = falcon.HTTP_401
+
                 resp.media = {
                     "success": False,
                     "message": "Email atau password salah"
                 }
+
                 return
 
             resp.status = falcon.HTTP_200
+
             resp.media = {
                 "success": True,
                 "message": "Login berhasil",
@@ -154,7 +188,9 @@ class LoginResource:
             }
 
         except Exception as e:
+
             resp.status = falcon.HTTP_500
+
             resp.media = {
                 "success": False,
                 "message": "Terjadi kesalahan pada server",
