@@ -34,7 +34,8 @@ class CORSMiddleware:
         )
 
         if req.method == "OPTIONS":
-            resp.status = falcon.HTTP_204
+            resp.status = falcon.HTTP_200
+            return
 
 
     def process_response(
