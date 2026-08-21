@@ -21,6 +21,26 @@ JWT_SECRET = os.environ.get(
 JWT_ALGORITHM = "HS256"
 
 
+BASE_DIR = os.path.dirname(
+    os.path.dirname(
+        os.path.dirname(
+            os.path.abspath(__file__)
+        )
+    )
+)
+
+UPLOAD_DIR = os.path.join(
+    BASE_DIR,
+    "uploads",
+    "profile"
+)
+
+os.makedirs(
+    UPLOAD_DIR,
+    exist_ok=True
+)
+
+
 def get_token_from_request(req):
 
     auth_header = req.get_header(
@@ -30,14 +50,10 @@ def get_token_from_request(req):
     if not auth_header:
         return None
 
-    if auth_header.startswith(
-        "Bearer "
-    ):
+    if auth_header.startswith("Bearer "):
         return auth_header[7:].strip()
 
-    if auth_header.startswith(
-        "jwt "
-    ):
+    if auth_header.startswith("jwt "):
         return auth_header[4:].strip()
 
     return None
@@ -87,45 +103,27 @@ class RegisterResource:
             data = req.get_media()
 
             title = str(
-                data.get(
-                    "title",
-                    ""
-                )
+                data.get("title", "")
             ).strip()
 
             nama = str(
-                data.get(
-                    "nama",
-                    ""
-                )
+                data.get("nama", "")
             ).strip()
 
             noHp = str(
-                data.get(
-                    "noHp",
-                    ""
-                )
+                data.get("noHp", "")
             ).strip()
 
             email = str(
-                data.get(
-                    "email",
-                    ""
-                )
+                data.get("email", "")
             ).strip()
 
             tanggalLahir = str(
-                data.get(
-                    "tanggalLahir",
-                    ""
-                )
+                data.get("tanggalLahir", "")
             ).strip()
 
             password = str(
-                data.get(
-                    "password",
-                    ""
-                )
+                data.get("password", "")
             )
 
             roles = str(
@@ -136,80 +134,59 @@ class RegisterResource:
             ).strip()
 
             if not title:
-
                 resp.status = falcon.HTTP_400
-
                 resp.media = {
                     "success": False,
                     "message": "Title wajib diisi"
                 }
-
                 return
 
             if not nama:
-
                 resp.status = falcon.HTTP_400
-
                 resp.media = {
                     "success": False,
                     "message": "Nama wajib diisi"
                 }
-
                 return
 
             if not noHp:
-
                 resp.status = falcon.HTTP_400
-
                 resp.media = {
                     "success": False,
                     "message": "Nomor HP wajib diisi"
                 }
-
                 return
 
             if not email:
-
                 resp.status = falcon.HTTP_400
-
                 resp.media = {
                     "success": False,
                     "message": "Email wajib diisi"
                 }
-
                 return
 
             if not tanggalLahir:
-
                 resp.status = falcon.HTTP_400
-
                 resp.media = {
                     "success": False,
                     "message": "Tanggal lahir wajib diisi"
                 }
-
                 return
 
             if not password:
-
                 resp.status = falcon.HTTP_400
-
                 resp.media = {
                     "success": False,
                     "message": "Password wajib diisi"
                 }
-
                 return
 
             if len(password) < 6:
-
                 resp.status = falcon.HTTP_400
-
                 resp.media = {
                     "success": False,
                     "message": "Password minimal 6 karakter"
                 }
-
                 return
 
             if title not in [
@@ -217,14 +194,11 @@ class RegisterResource:
                 "Ny",
                 "Nn"
             ]:
-
                 resp.status = falcon.HTTP_400
-
                 resp.media = {
                     "success": False,
                     "message": "Title tidak valid"
                 }
-
                 return
 
             result = register_user(
@@ -238,18 +212,14 @@ class RegisterResource:
             )
 
             if result is None:
-
                 resp.status = falcon.HTTP_409
-
                 resp.media = {
                     "success": False,
                     "message": "Email sudah terdaftar"
                 }
-
                 return
 
             resp.status = falcon.HTTP_201
-
             resp.media = {
                 "success": True,
                 "message": "Registrasi berhasil",
@@ -259,7 +229,6 @@ class RegisterResource:
         except Exception as e:
 
             resp.status = falcon.HTTP_500
-
             resp.media = {
                 "success": False,
                 "message": "Terjadi kesalahan pada server",
@@ -280,17 +249,11 @@ class LoginResource:
             data = req.get_media()
 
             email = str(
-                data.get(
-                    "email",
-                    ""
-                )
+                data.get("email", "")
             ).strip()
 
             password = str(
-                data.get(
-                    "password",
-                    ""
-                )
+                data.get("password", "")
             )
 
             remember_me = data.get(
@@ -302,32 +265,25 @@ class LoginResource:
                 remember_me,
                 str
             ):
-
                 remember_me = (
                     remember_me.lower()
                     == "true"
                 )
 
             if not email:
-
                 resp.status = falcon.HTTP_400
-
                 resp.media = {
                     "success": False,
                     "message": "Email wajib diisi"
                 }
-
                 return
 
             if not password:
-
                 resp.status = falcon.HTTP_400
-
                 resp.media = {
                     "success": False,
                     "message": "Password wajib diisi"
                 }
-
                 return
 
             result = login_user(
@@ -337,18 +293,14 @@ class LoginResource:
             )
 
             if result is None:
-
                 resp.status = falcon.HTTP_401
-
                 resp.media = {
                     "success": False,
                     "message": "Email atau password salah"
                 }
-
                 return
 
             resp.status = falcon.HTTP_200
-
             resp.media = {
                 "success": True,
                 "message": "Login berhasil",
@@ -359,7 +311,6 @@ class LoginResource:
         except Exception as e:
 
             resp.status = falcon.HTTP_500
-
             resp.media = {
                 "success": False,
                 "message": "Terjadi kesalahan pada server",
@@ -378,27 +329,19 @@ class ProfileResource:
 
         try:
 
-            user_id = get_current_user_id(
-                req
-            )
+            user_id = get_current_user_id(req)
 
-            user = get_user_by_id(
-                user_id
-            )
+            user = get_user_by_id(user_id)
 
             if not user:
-
                 resp.status = falcon.HTTP_404
-
                 resp.media = {
                     "success": False,
                     "message": "User tidak ditemukan"
                 }
-
                 return
 
             resp.status = falcon.HTTP_200
-
             resp.media = {
                 "success": True,
                 "user": user
@@ -407,7 +350,6 @@ class ProfileResource:
         except jwt.ExpiredSignatureError:
 
             resp.status = falcon.HTTP_401
-
             resp.media = {
                 "success": False,
                 "message": "Token sudah expired"
@@ -416,7 +358,6 @@ class ProfileResource:
         except jwt.InvalidTokenError:
 
             resp.status = falcon.HTTP_401
-
             resp.media = {
                 "success": False,
                 "message": "Token tidak valid"
@@ -425,7 +366,6 @@ class ProfileResource:
         except ValueError as e:
 
             resp.status = falcon.HTTP_401
-
             resp.media = {
                 "success": False,
                 "message": str(e)
@@ -434,12 +374,14 @@ class ProfileResource:
         except Exception as e:
 
             resp.status = falcon.HTTP_500
-
             resp.media = {
                 "success": False,
                 "message": "Terjadi kesalahan pada server",
                 "error": str(e)
             }
+
+
+class ProfilePhotoResource:
 
     @db_session
     def on_put(
@@ -450,23 +392,18 @@ class ProfileResource:
 
         try:
 
-            user_id = get_current_user_id(
-                req
-            )
+            user_id = get_current_user_id(req)
 
             content_type = req.content_type or ""
 
             if not content_type.startswith(
                 "multipart/form-data"
             ):
-
                 resp.status = falcon.HTTP_400
-
                 resp.media = {
                     "success": False,
                     "message": "Request harus multipart/form-data"
                 }
-
                 return
 
             form = req.get_media()
@@ -476,28 +413,22 @@ class ProfileResource:
             )
 
             if not file:
-
                 resp.status = falcon.HTTP_400
-
                 resp.media = {
                     "success": False,
                     "message": "File profile_photo wajib diupload"
                 }
-
                 return
 
             if not hasattr(
                 file,
                 "file"
             ):
-
                 resp.status = falcon.HTTP_400
-
                 resp.media = {
                     "success": False,
                     "message": "Format file tidak valid"
                 }
-
                 return
 
             filename = getattr(
@@ -507,14 +438,11 @@ class ProfileResource:
             )
 
             if not filename:
-
                 resp.status = falcon.HTTP_400
-
                 resp.media = {
                     "success": False,
                     "message": "Nama file tidak ditemukan"
                 }
-
                 return
 
             extension = os.path.splitext(
@@ -529,17 +457,12 @@ class ProfileResource:
             ]
 
             if extension not in allowed_extensions:
-
                 resp.status = falcon.HTTP_400
-
                 resp.media = {
                     "success": False,
                     "message": "Format foto harus JPG, JPEG, PNG, atau WEBP"
                 }
-
                 return
-
-            max_size = 5 * 1024 * 1024
 
             file.file.seek(
                 0,
@@ -548,30 +471,15 @@ class ProfileResource:
 
             file_size = file.file.tell()
 
-            file.file.seek(
-                0
-            )
+            file.file.seek(0)
 
-            if file_size > max_size:
-
+            if file_size > 5 * 1024 * 1024:
                 resp.status = falcon.HTTP_400
-
                 resp.media = {
                     "success": False,
                     "message": "Ukuran foto maksimal 5 MB"
                 }
-
                 return
-
-            upload_dir = os.path.join(
-                "uploads",
-                "profile"
-            )
-
-            os.makedirs(
-                upload_dir,
-                exist_ok=True
-            )
 
             new_filename = (
                 f"user_{user_id}_"
@@ -580,7 +488,7 @@ class ProfileResource:
             )
 
             file_path = os.path.join(
-                upload_dir,
+                UPLOAD_DIR,
                 new_filename
             )
 
@@ -588,14 +496,12 @@ class ProfileResource:
                 file_path,
                 "wb"
             ) as destination:
-
                 destination.write(
                     file.file.read()
                 )
 
             profile_photo = (
-                f"/uploads/profile/"
-                f"{new_filename}"
+                f"/uploads/profile/{new_filename}"
             )
 
             user = update_profile_photo(
@@ -604,14 +510,11 @@ class ProfileResource:
             )
 
             if not user:
-
                 resp.status = falcon.HTTP_404
-
                 resp.media = {
                     "success": False,
                     "message": "User tidak ditemukan"
                 }
-
                 return
 
             resp.status = falcon.HTTP_200
@@ -626,7 +529,6 @@ class ProfileResource:
         except jwt.ExpiredSignatureError:
 
             resp.status = falcon.HTTP_401
-
             resp.media = {
                 "success": False,
                 "message": "Token sudah expired"
@@ -635,7 +537,6 @@ class ProfileResource:
         except jwt.InvalidTokenError:
 
             resp.status = falcon.HTTP_401
-
             resp.media = {
                 "success": False,
                 "message": "Token tidak valid"
@@ -644,7 +545,6 @@ class ProfileResource:
         except ValueError as e:
 
             resp.status = falcon.HTTP_401
-
             resp.media = {
                 "success": False,
                 "message": str(e)
@@ -653,7 +553,6 @@ class ProfileResource:
         except Exception as e:
 
             resp.status = falcon.HTTP_500
-
             resp.media = {
                 "success": False,
                 "message": "Gagal mengupload foto",

@@ -33,7 +33,6 @@ PROFILE_DIR = os.path.join(
     "profile"
 )
 
-
 os.makedirs(
     PROFILE_DIR,
     exist_ok=True

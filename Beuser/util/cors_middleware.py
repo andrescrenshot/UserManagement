@@ -6,7 +6,7 @@ class CORSMiddleware:
     ALLOWED_ORIGINS = [
         "http://localhost:5173",
         "http://localhost:3000",
-        "https://usermanagement-gaharu.vercel.app",
+        "https://usermanagement-gaharu.vercel.app"
     ]
 
     def process_request(self, req, resp):
@@ -26,12 +26,17 @@ class CORSMiddleware:
 
         resp.set_header(
             "Access-Control-Allow-Headers",
-            "Content-Type, Authorization"
+            "Content-Type, Authorization, Accept"
         )
 
         resp.set_header(
             "Access-Control-Allow-Methods",
             "GET, POST, PUT, DELETE, OPTIONS"
+        )
+
+        resp.set_header(
+            "Access-Control-Max-Age",
+            "86400"
         )
 
         if req.method == "OPTIONS":
@@ -61,7 +66,7 @@ class CORSMiddleware:
 
         resp.set_header(
             "Access-Control-Allow-Headers",
-            "Content-Type, Authorization"
+            "Content-Type, Authorization, Accept"
         )
 
         resp.set_header(

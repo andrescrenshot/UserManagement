@@ -1,7 +1,8 @@
 from .resource import (
     RegisterResource,
     LoginResource,
-    ProfileResource
+    ProfileResource,
+    ProfilePhotoResource
 )
 
 
@@ -24,5 +25,5 @@ def register_routes(app):
 
     app.add_route(
         "/api/user/profile-photo",
-        ProfileResource()
+        ProfilePhotoResource()
     )
