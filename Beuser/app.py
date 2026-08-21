@@ -9,6 +9,14 @@ from entitas.user.routes import register_routes as register_user_routes
 from util.cors_middleware import CORSMiddleware
 
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
+PROFILE_DIR = os.path.join(UPLOAD_DIR, "profile")
+
+
+os.makedirs(PROFILE_DIR, exist_ok=True)
+
+
 app = falcon.App(
     middleware=[
         CORSMiddleware()
@@ -19,9 +27,6 @@ app = falcon.App(
 db.generate_mapping(
     create_tables=True
 )
-
-
-os.makedirs("uploads/profile", exist_ok=True)
 
 
 register_user_routes(app)
@@ -44,7 +49,7 @@ app.add_route(
 
 app.add_static_route(
     "/uploads",
-    "uploads"
+    UPLOAD_DIR
 )
 
 
