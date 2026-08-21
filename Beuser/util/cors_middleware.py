@@ -5,6 +5,7 @@ class CORSMiddleware:
 
     ALLOWED_ORIGINS = [
         "http://localhost:5173",
+        "http://localhost:3000",
         "https://usermanagement-gaharu.vercel.app",
     ]
 
@@ -18,24 +19,24 @@ class CORSMiddleware:
                 origin
             )
 
-            resp.set_header(
-                "Access-Control-Allow-Credentials",
-                "true"
-            )
+        resp.set_header(
+            "Access-Control-Allow-Credentials",
+            "true"
+        )
 
-            resp.set_header(
-                "Access-Control-Allow-Headers",
-                "Content-Type, Authorization"
-            )
+        resp.set_header(
+            "Access-Control-Allow-Headers",
+            "Content-Type, Authorization"
+        )
 
-            resp.set_header(
-                "Access-Control-Allow-Methods",
-                "GET, POST, PUT, DELETE, OPTIONS"
-            )
+        resp.set_header(
+            "Access-Control-Allow-Methods",
+            "GET, POST, PUT, DELETE, OPTIONS"
+        )
 
         if req.method == "OPTIONS":
             resp.status = falcon.HTTP_200
-
+            return True
 
     def process_response(
         self,
@@ -53,17 +54,17 @@ class CORSMiddleware:
                 origin
             )
 
-            resp.set_header(
-                "Access-Control-Allow-Credentials",
-                "true"
-            )
+        resp.set_header(
+            "Access-Control-Allow-Credentials",
+            "true"
+        )
 
-            resp.set_header(
-                "Access-Control-Allow-Headers",
-                "Content-Type, Authorization"
-            )
+        resp.set_header(
+            "Access-Control-Allow-Headers",
+            "Content-Type, Authorization"
+        )
 
-            resp.set_header(
-                "Access-Control-Allow-Methods",
-                "GET, POST, PUT, DELETE, OPTIONS"
-            )
+        resp.set_header(
+            "Access-Control-Allow-Methods",
+            "GET, POST, PUT, DELETE, OPTIONS"
+        )
