@@ -212,108 +212,15 @@ export default function Login() {
         return;
       }
 
-      /*
-       * REMEMBER ME
-       *
-       * Dicentang:
-       * - token disimpan di localStorage
-       * - tetap tersedia setelah browser ditutup
-       *
-       * Tidak dicentang:
-       * - token disimpan di sessionStorage
-       * - hanya berlaku selama session browser
-       */
+      sessionStorage.setItem("token", token);
+      sessionStorage.setItem("current_user", JSON.stringify(user));
+      sessionStorage.setItem("isLoggedIn", "true");
 
-      if (rememberMe) {
-        localStorage.setItem(
-          "token",
-          token
-        );
+      console.log("TOKEN LOGIN:", token);
+      console.log("USER LOGIN:", user);
+      console.log("REMEMBER ME:", rememberMe);
 
-        localStorage.setItem(
-          "current_user",
-          JSON.stringify(user)
-        );
-
-        localStorage.setItem(
-          "isLoggedIn",
-          "true"
-        );
-
-        localStorage.setItem(
-          "rememberMe",
-          "true"
-        );
-
-        sessionStorage.removeItem(
-          "token"
-        );
-
-        sessionStorage.removeItem(
-          "current_user"
-        );
-
-        sessionStorage.removeItem(
-          "isLoggedIn"
-        );
-      } else {
-        sessionStorage.setItem(
-          "token",
-          token
-        );
-
-        sessionStorage.setItem(
-          "current_user",
-          JSON.stringify(user)
-        );
-
-        sessionStorage.setItem(
-          "isLoggedIn",
-          "true"
-        );
-
-        localStorage.removeItem(
-          "token"
-        );
-
-        localStorage.removeItem(
-          "current_user"
-        );
-
-        localStorage.removeItem(
-          "isLoggedIn"
-        );
-
-        localStorage.removeItem(
-          "rememberMe"
-        );
-      }
-
-      console.log(
-        "TOKEN LOGIN:",
-        token
-      );
-
-      console.log(
-        "USER LOGIN:",
-        user
-      );
-
-      console.log(
-        "REMEMBER ME:",
-        rememberMe
-      );
-
-      console.log(
-        "TOKEN STORAGE:",
-        rememberMe
-          ? "localStorage - 30 hari"
-          : "sessionStorage - session"
-      );
-
-      window.dispatchEvent(
-        new Event("user-login")
-      );
+      window.dispatchEvent(new Event("user-login"));
 
       setSubmitting(false);
 
@@ -328,10 +235,7 @@ export default function Login() {
 
       navigate("/Dashboard");
     } catch (error) {
-      console.error(
-        "Login error:",
-        error
-      );
+      console.error("Login error:", error);
 
       const message =
         "Tidak dapat terhubung ke server. Pastikan backend Railway sedang aktif dan VITE_API_URL sudah benar.";
@@ -451,16 +355,10 @@ export default function Login() {
 
             <div className="position-relative">
               <input
-                type={
-                  showPassword
-                    ? "text"
-                    : "password"
-                }
+                type={showPassword ? "text" : "password"}
                 id="loginPassword"
                 className={`form-control ${
-                  errors.password
-                    ? "is-invalid"
-                    : ""
+                  errors.password ? "is-invalid" : ""
                 }`}
                 placeholder="Masukkan kata sandi"
                 value={password}
@@ -468,8 +366,7 @@ export default function Login() {
                 autoComplete="current-password"
                 style={{
                   borderRadius: "10px",
-                  padding:
-                    "12px 45px 12px 13px",
+                  padding: "12px 45px 12px 13px",
                   fontSize: "14px",
                   minHeight: "46px",
                 }}
@@ -488,14 +385,11 @@ export default function Login() {
                   background: "none",
                   right: "5px",
                   top: "50%",
-                  transform:
-                    "translateY(-50%)",
+                  transform: "translateY(-50%)",
                   padding: "8px",
                 }}
                 onClick={() =>
-                  setShowPassword(
-                    (prev) => !prev
-                  )
+                  setShowPassword((prev) => !prev)
                 }
               >
                 <i
@@ -532,9 +426,7 @@ export default function Login() {
                 id="rememberMe"
                 checked={rememberMe}
                 onChange={(e) =>
-                  setRememberMe(
-                    e.target.checked
-                  )
+                  setRememberMe(e.target.checked)
                 }
                 style={{
                   width: "16px",
@@ -562,9 +454,7 @@ export default function Login() {
               style={{
                 fontSize: "13px",
               }}
-              onClick={() =>
-                navigate("/register")
-              }
+              onClick={() => navigate("/register")}
             >
               Lupa Sandi?
             </button>
@@ -576,8 +466,7 @@ export default function Login() {
             disabled={submitting}
             style={{
               backgroundColor:
-                isFormValid() &&
-                !submitting
+                isFormValid() && !submitting
                   ? "#0B2B8E"
                   : "#A0A3BD",
               borderRadius: "999px",
@@ -588,9 +477,7 @@ export default function Login() {
               fontSize: "14px",
             }}
           >
-            {submitting
-              ? "Memproses..."
-              : "Masuk"}
+            {submitting ? "Memproses..." : "Masuk"}
           </button>
 
           <div
@@ -602,12 +489,9 @@ export default function Login() {
             <span className="text-muted">
               Belum punya akun?
             </span>{" "}
-
             <button
               type="button"
-              onClick={() =>
-                navigate("/register")
-              }
+              onClick={() => navigate("/register")}
               className="btn p-0 fw-bold"
               style={{
                 color: "#0B2B8E",
@@ -627,9 +511,7 @@ export default function Login() {
               lineHeight: 1.6,
             }}
           >
-            Dengan masuk ke dalam akun, kamu
-            menyetujui{" "}
-
+            Dengan masuk ke dalam akun, kamu menyetujui{" "}
             <a
               href="#"
               className="fw-semibold text-decoration-none"
@@ -639,9 +521,7 @@ export default function Login() {
             >
               Syarat & Ketentuan
             </a>{" "}
-
             dan{" "}
-
             <a
               href="#"
               className="fw-semibold text-decoration-none"
@@ -651,7 +531,6 @@ export default function Login() {
             >
               Kebijakan Privasi
             </a>{" "}
-
             kami.
           </p>
         </form>
