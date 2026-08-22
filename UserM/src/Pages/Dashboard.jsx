@@ -12,10 +12,20 @@ import {
   RiArrowLeftDoubleLine,
   RiArrowRightDoubleLine,
   RiCloseLine,
-} from "react-icons/ri"; 
+} from "react-icons/ri";
 import Swal from "sweetalert2";
 
-import { getUsersApi, updateUserApi, deleteUserApi } from "../api/userApi";
+import {
+  getUsersApi,
+  updateUserApi,
+  deleteUserApi,
+} from "../api/userApi";
+
+import {
+  getAuthToken,
+  getCurrentUser,
+  clearAuth,
+} from "../utils/auth";
 
 const BLUE = "#1226C4";
 
@@ -58,7 +68,10 @@ const normalizeUser = (user) => {
     noHp: user.noHp || user.no_hp || user.phone || "",
     email: user.email || "",
     tanggalLahir:
-      user.tanggalLahir || user.tanggal_lahir || user.birth_date || "",
+      user.tanggalLahir ||
+      user.tanggal_lahir ||
+      user.birth_date ||
+      "",
     roles: user.roles || user.role || "",
     status,
   };
@@ -67,13 +80,19 @@ const normalizeUser = (user) => {
 function formatTanggalID(date) {
   if (!date) return "";
 
-  return `${date.getDate()} ${BULAN_ID[date.getMonth()]} ${date.getFullYear()}`;
+  return `${date.getDate()} ${
+    BULAN_ID[date.getMonth()]
+  } ${date.getFullYear()}`;
 }
 
 function getMonthGrid(year, month) {
   const firstDay = new Date(year, month, 1);
   const startOffset = (firstDay.getDay() + 6) % 7;
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInMonth = new Date(
+    year,
+    month + 1,
+    0
+  ).getDate();
 
   const cells = [];
 
@@ -108,7 +127,14 @@ function isSameDay(a, b) {
   );
 }
 
-function MiniCalendar({ year, month, onPrev, onNext, selected, onSelectDate }) {
+function MiniCalendar({
+  year,
+  month,
+  onPrev,
+  onNext,
+  selected,
+  onSelectDate,
+}) {
   const weeks = getMonthGrid(year, month);
 
   return (
@@ -200,10 +226,18 @@ function MiniCalendar({ year, month, onPrev, onNext, selected, onSelectDate }) {
                         borderRadius: "50%",
                         margin: "0 auto",
                         cursor: "pointer",
-                        background: isSameDay(d, selected)
+                        background: isSameDay(
+                          d,
+                          selected
+                        )
                           ? BLUE
                           : "transparent",
-                        color: isSameDay(d, selected) ? "white" : "#374151",
+                        color: isSameDay(
+                          d,
+                          selected
+                        )
+                          ? "white"
+                          : "#374151",
                       }}
                     >
                       {d.getDate()}
@@ -238,10 +272,16 @@ export default function Dashboard() {
 
   const [toggleTarget, setToggleTarget] = useState(null);
 
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] =
+    useState(false);
 
-  const [dateFrom, setDateFrom] = useState(new Date(2023, 3, 4));
-  const [dateTo, setDateTo] = useState(new Date(2023, 6, 16));
+  const [dateFrom, setDateFrom] = useState(
+    new Date(2023, 3, 4)
+  );
+
+  const [dateTo, setDateTo] = useState(
+    new Date(2023, 6, 16)
+  );
 
   const [leftCal, setLeftCal] = useState({
     year: 2023,
@@ -253,11 +293,33 @@ export default function Dashboard() {
     month: 6,
   });
 
+  const [currentUser, setCurrentUser] =
+    useState(null);
+
   const loadUsers = async () => {
     try {
+      setLoading(true);
+
+      const token = getAuthToken();
+
+      if (!token) {
+        clearAuth();
+        navigate("/login", { replace: true });
+        return;
+      }
+
+      const user = getCurrentUser();
+
+      if (user) {
+        setCurrentUser(user);
+      }
+
       const response = await getUsersApi();
 
-      console.log("Response GET TAMBAH USER:", response);
+      console.log(
+        "Response GET TAMBAH USER:",
+        response
+      );
 
       let data = [];
 
@@ -265,7 +327,9 @@ export default function Dashboard() {
         data = response;
       } else if (Array.isArray(response?.data)) {
         data = response.data;
-      } else if (Array.isArray(response?.data?.data)) {
+      } else if (
+        Array.isArray(response?.data?.data)
+      ) {
         data = response.data.data;
       } else if (Array.isArray(response?.users)) {
         data = response.users;
@@ -275,12 +339,40 @@ export default function Dashboard() {
 
       setUsers(normalized);
     } catch (error) {
-      console.error("Gagal mengambil user:", error);
+      console.error(
+        "Gagal mengambil user:",
+        error
+      );
+
+      if (
+        error?.response?.status === 401 ||
+        error?.status === 401 ||
+        error?.message
+          ?.toLowerCase()
+          .includes("401")
+      ) {
+        clearAuth();
+
+        await Swal.fire({
+          icon: "warning",
+          title: "Sesi Berakhir",
+          text: "Silakan login kembali.",
+          confirmButtonColor: BLUE,
+        });
+
+        navigate("/login", {
+          replace: true,
+        });
+
+        return;
+      }
 
       Swal.fire({
         icon: "error",
         title: "Gagal!",
-        text: error.message || "Gagal mengambil data user dari backend.",
+        text:
+          error.message ||
+          "Gagal mengambil data user dari backend.",
         confirmButtonColor: BLUE,
       });
     } finally {
@@ -289,51 +381,56 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    let cancelled = false;
+    const token = getAuthToken();
 
-    const fetchUsers = async () => {
-      try {
-        const response = await getUsersApi();
+    if (!token) {
+      clearAuth();
+      navigate("/login", {
+        replace: true,
+      });
+      return;
+    }
 
-        if (cancelled) return;
+    const user = getCurrentUser();
 
-        console.log("Response GET TAMBAH USER:", response);
+    if (user) {
+      setCurrentUser(user);
+    }
 
-        let data = [];
+    loadUsers();
+  }, []);
 
-        if (Array.isArray(response)) {
-          data = response;
-        } else if (Array.isArray(response?.data)) {
-          data = response.data;
-        } else if (Array.isArray(response?.data?.data)) {
-          data = response.data.data;
-        } else if (Array.isArray(response?.users)) {
-          data = response.users;
-        }
+  useEffect(() => {
+    const handleUserLogin = () => {
+      const token = getAuthToken();
 
-        setUsers(data.map(normalizeUser));
-      } catch (error) {
-        if (cancelled) return;
-
-        console.error("Gagal mengambil user:", error);
-
-        Swal.fire({
-          icon: "error",
-          title: "Gagal!",
-          text: error.message || "Gagal mengambil data user dari backend.",
-          confirmButtonColor: BLUE,
+      if (!token) {
+        clearAuth();
+        navigate("/login", {
+          replace: true,
         });
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        return;
       }
+
+      const user = getCurrentUser();
+
+      if (user) {
+        setCurrentUser(user);
+      }
+
+      loadUsers();
     };
 
-    fetchUsers();
+    window.addEventListener(
+      "user-login",
+      handleUserLogin
+    );
 
     return () => {
-      cancelled = true;
+      window.removeEventListener(
+        "user-login",
+        handleUserLogin
+      );
     };
   }, []);
 
@@ -343,7 +440,9 @@ export default function Dashboard() {
     const keyword = search.toLowerCase();
 
     return (
-      u.status === tab && (nama.includes(keyword) || email.includes(keyword))
+      u.status === tab &&
+      (nama.includes(keyword) ||
+        email.includes(keyword))
     );
   });
 
@@ -359,12 +458,19 @@ export default function Dashboard() {
 
   const confirmDelete = async () => {
     if (!deleteReason.trim()) {
-      setDeleteError("Alasan wajib diisi sebelum menghapus data.");
+      setDeleteError(
+        "Alasan wajib diisi sebelum menghapus data."
+      );
       return;
     }
 
+    if (!deleteTarget) return;
+
     try {
-      await deleteUserApi(deleteTarget.id, deleteReason.trim());
+      await deleteUserApi(
+        deleteTarget.id,
+        deleteReason.trim()
+      );
 
       setDeleteTarget(null);
       setDeleteReason("");
@@ -381,12 +487,17 @@ export default function Dashboard() {
         showConfirmButton: false,
       });
     } catch (error) {
-      console.error("Delete user error:", error);
+      console.error(
+        "Delete user error:",
+        error
+      );
 
       Swal.fire({
         icon: "error",
         title: "Gagal!",
-        text: error.message || "Data user gagal dihapus.",
+        text:
+          error.message ||
+          "Data user gagal dihapus.",
         confirmButtonColor: BLUE,
       });
     }
@@ -418,7 +529,8 @@ export default function Dashboard() {
   const confirmToggle = async () => {
     if (!toggleTarget) return;
 
-    const goingActive = toggleTarget.status !== "active";
+    const goingActive =
+      toggleTarget.status !== "active";
 
     try {
       await updateUserApi(toggleTarget.id, {
@@ -428,7 +540,9 @@ export default function Dashboard() {
         email: toggleTarget.email,
         tanggalLahir: toggleTarget.tanggalLahir,
         roles: toggleTarget.roles,
-        status: goingActive ? "active" : "nonaktif",
+        status: goingActive
+          ? "active"
+          : "nonaktif",
       });
 
       setToggleTarget(null);
@@ -437,19 +551,26 @@ export default function Dashboard() {
 
       Swal.fire({
         icon: "success",
-        title: goingActive ? "User diaktifkan kembali" : "User dinon-aktifkan",
+        title: goingActive
+          ? "User diaktifkan kembali"
+          : "User dinon-aktifkan",
         toast: true,
         position: "top-end",
         timer: 1500,
         showConfirmButton: false,
       });
     } catch (error) {
-      console.error("Toggle status error:", error);
+      console.error(
+        "Toggle status error:",
+        error
+      );
 
       Swal.fire({
         icon: "error",
         title: "Gagal!",
-        text: error.message || "Status user gagal diubah.",
+        text:
+          error.message ||
+          "Status user gagal diubah.",
         confirmButtonColor: BLUE,
       });
     }
@@ -513,7 +634,8 @@ export default function Dashboard() {
               background: "white",
               borderRadius: "16px",
               padding: "32px",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+              boxShadow:
+                "0 1px 3px rgba(0,0,0,0.06)",
             }}
           >
             <div
@@ -549,7 +671,9 @@ export default function Dashboard() {
                     color: "#1F2937",
                   }}
                 >
-                  {totalMember.toLocaleString("id-ID")}
+                  {totalMember.toLocaleString(
+                    "id-ID"
+                  )}
                 </div>
               </div>
 
@@ -597,7 +721,8 @@ export default function Dashboard() {
               style={{
                 display: "flex",
                 gap: "32px",
-                borderBottom: "1px solid #E5E7EB",
+                borderBottom:
+                  "1px solid #E5E7EB",
                 marginBottom: "20px",
               }}
             >
@@ -618,8 +743,12 @@ export default function Dashboard() {
                     paddingBottom: "14px",
                     cursor: "pointer",
                     fontSize: "16px",
-                    fontWeight: tab === t.key ? 600 : 400,
-                    color: tab === t.key ? BLUE : "#9CA3AF",
+                    fontWeight:
+                      tab === t.key ? 600 : 400,
+                    color:
+                      tab === t.key
+                        ? BLUE
+                        : "#9CA3AF",
                     borderBottom:
                       tab === t.key
                         ? `3px solid ${BLUE}`
@@ -634,7 +763,8 @@ export default function Dashboard() {
             <div
               style={{
                 display: "flex",
-                justifyContent: "space-between",
+                justifyContent:
+                  "space-between",
                 alignItems: "center",
                 gap: "14px",
                 marginBottom: "20px",
@@ -659,19 +789,24 @@ export default function Dashboard() {
                       position: "absolute",
                       left: "14px",
                       top: "50%",
-                      transform: "translateY(-50%)",
+                      transform:
+                        "translateY(-50%)",
                       color: "#9CA3AF",
                     }}
                   />
 
                   <input
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={(e) =>
+                      setSearch(e.target.value)
+                    }
                     placeholder="Cari"
                     style={{
-                      padding: "13px 16px 13px 42px",
+                      padding:
+                        "13px 16px 13px 42px",
                       fontSize: "15px",
-                      border: "1px solid #E5E7EB",
+                      border:
+                        "1px solid #E5E7EB",
                       borderRadius: "9px",
                       outline: "none",
                       width: "240px",
@@ -680,12 +815,15 @@ export default function Dashboard() {
                 </div>
 
                 <div
-                  onClick={() => setShowDatePicker(true)}
+                  onClick={() =>
+                    setShowDatePicker(true)
+                  }
                   style={{
                     display: "flex",
                     alignItems: "center",
                     gap: "10px",
-                    border: "1px solid #E5E7EB",
+                    border:
+                      "1px solid #E5E7EB",
                     borderRadius: "9px",
                     padding: "13px 16px",
                     fontSize: "15px",
@@ -704,7 +842,9 @@ export default function Dashboard() {
               </div>
 
               <button
-                onClick={() => navigate("/Dashboard/tambah")}
+                onClick={() =>
+                  navigate("/Dashboard/tambah")
+                }
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -734,7 +874,8 @@ export default function Dashboard() {
                 style={{
                   width: "100%",
                   minWidth: "1000px",
-                  borderCollapse: "collapse",
+                  borderCollapse:
+                    "collapse",
                   fontSize: "15px",
                 }}
               >
@@ -743,15 +884,20 @@ export default function Dashboard() {
                     style={{
                       textAlign: "left",
                       color: "#9CA3AF",
-                      borderBottom: "1px solid #E5E7EB",
+                      borderBottom:
+                        "1px solid #E5E7EB",
                     }}
                   >
                     <th style={thStyle}>No.</th>
                     <th style={thStyle}>Title</th>
                     <th style={thStyle}>Nama</th>
-                    <th style={thStyle}>No. Handphone</th>
+                    <th style={thStyle}>
+                      No. Handphone
+                    </th>
                     <th style={thStyle}>Email</th>
-                    <th style={thStyle}>Tanggal Lahir</th>
+                    <th style={thStyle}>
+                      Tanggal Lahir
+                    </th>
                     <th style={thStyle}>Roles</th>
                     <th style={thStyle}>Aksi</th>
                   </tr>
@@ -781,7 +927,8 @@ export default function Dashboard() {
                           color: "#9CA3AF",
                         }}
                       >
-                        Tidak ada user pada kategori ini.
+                        Tidak ada user pada
+                        kategori ini.
                       </td>
                     </tr>
                   ) : (
@@ -789,29 +936,45 @@ export default function Dashboard() {
                       <tr
                         key={u.id}
                         style={{
-                          borderBottom: "1px solid #F3F4F6",
+                          borderBottom:
+                            "1px solid #F3F4F6",
                           color: "#374151",
                         }}
                       >
-                        <td style={tdStyle}>{idx + 1}</td>
+                        <td style={tdStyle}>
+                          {idx + 1}
+                        </td>
 
-                        <td style={tdStyle}>{u.title}</td>
+                        <td style={tdStyle}>
+                          {u.title}
+                        </td>
 
-                        <td style={tdStyle}>{u.nama}</td>
+                        <td style={tdStyle}>
+                          {u.nama}
+                        </td>
 
-                        <td style={tdStyle}>🇮🇩 {u.noHp}</td>
+                        <td style={tdStyle}>
+                          🇮🇩 {u.noHp}
+                        </td>
 
-                        <td style={tdStyle}>{u.email}</td>
+                        <td style={tdStyle}>
+                          {u.email}
+                        </td>
 
-                        <td style={tdStyle}>{u.tanggalLahir}</td>
+                        <td style={tdStyle}>
+                          {u.tanggalLahir}
+                        </td>
 
-                        <td style={tdStyle}>{u.roles}</td>
+                        <td style={tdStyle}>
+                          {u.roles}
+                        </td>
 
                         <td style={tdStyle}>
                           <div
                             style={{
                               display: "flex",
-                              alignItems: "center",
+                              alignItems:
+                                "center",
                               gap: "14px",
                               color: "#9CA3AF",
                             }}
@@ -820,42 +983,60 @@ export default function Dashboard() {
                               size={20}
                               title="Lihat Detail"
                               style={{
-                                cursor: "pointer",
+                                cursor:
+                                  "pointer",
                               }}
-                              onClick={() => setDetailUser(u)}
+                              onClick={() =>
+                                setDetailUser(u)
+                              }
                             />
 
                             <RiPencilLine
                               size={20}
                               title="Edit"
                               style={{
-                                cursor: "pointer",
+                                cursor:
+                                  "pointer",
                               }}
                               onClick={() =>
-                                navigate(`/Dashboard/edit/${u.id}`)
+                                navigate(
+                                  `/Dashboard/edit/${u.id}`
+                                )
                               }
                             />
 
                             <span
-                              onClick={() => handleToggleStatus(u)}
+                              onClick={() =>
+                                handleToggleStatus(
+                                  u
+                                )
+                              }
                               style={{
                                 fontSize: "13px",
-                                textDecoration: "underline",
-                                cursor: "pointer",
+                                textDecoration:
+                                  "underline",
+                                cursor:
+                                  "pointer",
                                 color: "#B79A6A",
-                                whiteSpace: "nowrap",
+                                whiteSpace:
+                                  "nowrap",
                               }}
                             >
-                              {tab === "active" ? "Non-aktif" : "Re-aktif"}
+                              {tab === "active"
+                                ? "Non-aktif"
+                                : "Re-aktif"}
                             </span>
 
                             <RiDeleteBinLine
                               size={20}
                               title="Hapus"
                               style={{
-                                cursor: "pointer",
+                                cursor:
+                                  "pointer",
                               }}
-                              onClick={() => handleDelete(u)}
+                              onClick={() =>
+                                handleDelete(u)
+                              }
                             />
                           </div>
                         </td>
@@ -869,14 +1050,17 @@ export default function Dashboard() {
             <div
               style={{
                 display: "flex",
-                justifyContent: "center",
+                justifyContent:
+                  "center",
                 alignItems: "center",
                 gap: "14px",
                 marginTop: "30px",
                 color: "#9CA3AF",
               }}
             >
-              <RiArrowLeftDoubleLine size={20} />
+              <RiArrowLeftDoubleLine
+                size={20}
+              />
 
               <RiArrowLeftSLine size={20} />
 
@@ -889,16 +1073,22 @@ export default function Dashboard() {
                   color: "white",
                   fontSize: "14px",
                   display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  alignItems:
+                    "center",
+                  justifyContent:
+                    "center",
                 }}
               >
                 1
               </span>
 
-              <RiArrowRightSLine size={20} />
+              <RiArrowRightSLine
+                size={20}
+              />
 
-              <RiArrowRightDoubleLine size={20} />
+              <RiArrowRightDoubleLine
+                size={20}
+              />
             </div>
           </div>
         </div>
@@ -909,10 +1099,13 @@ export default function Dashboard() {
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.45)",
+            background:
+              "rgba(0,0,0,0.45)",
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            alignItems:
+              "center",
+            justifyContent:
+              "center",
             zIndex: 60,
             padding: "16px",
           }}
@@ -924,7 +1117,8 @@ export default function Dashboard() {
               width: "100%",
               maxWidth: "380px",
               padding: "24px",
-              boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+              boxShadow:
+                "0 20px 40px rgba(0,0,0,0.2)",
             }}
           >
             <div
@@ -952,13 +1146,16 @@ export default function Dashboard() {
                 marginBottom: "16px",
               }}
             >
-              Apakah kamu yakin menghapus data ini? Berikan alasan!
+              Apakah kamu yakin menghapus data
+              ini? Berikan alasan!
             </div>
 
             <textarea
               value={deleteReason}
               onChange={(e) => {
-                setDeleteReason(e.target.value);
+                setDeleteReason(
+                  e.target.value
+                );
 
                 if (deleteError) {
                   setDeleteError("");
@@ -970,12 +1167,18 @@ export default function Dashboard() {
                 width: "100%",
                 padding: "10px 12px",
                 fontSize: "13px",
-                border: `1px solid ${deleteError ? "#DC2626" : "#E5E7EB"}`,
+                border: `1px solid ${
+                  deleteError
+                    ? "#DC2626"
+                    : "#E5E7EB"
+                }`,
                 borderRadius: "8px",
                 outline: "none",
                 resize: "none",
-                boxSizing: "border-box",
-                fontFamily: "inherit",
+                boxSizing:
+                  "border-box",
+                fontFamily:
+                  "inherit",
               }}
             />
 
@@ -1016,14 +1219,17 @@ export default function Dashboard() {
               </button>
 
               <button
-                onClick={() => setDeleteTarget(null)}
+                onClick={() =>
+                  setDeleteTarget(null)
+                }
                 style={{
                   flex: 1,
                   padding: "11px",
                   fontSize: "12px",
                   fontWeight: 600,
                   borderRadius: "8px",
-                  border: "1px solid #E5E7EB",
+                  border:
+                    "1px solid #E5E7EB",
                   background: "white",
                   color: "#374151",
                   cursor: "pointer",
@@ -1041,10 +1247,13 @@ export default function Dashboard() {
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.45)",
+            background:
+              "rgba(0,0,0,0.45)",
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            alignItems:
+              "center",
+            justifyContent:
+              "center",
             zIndex: 60,
             padding: "16px",
           }}
@@ -1056,20 +1265,26 @@ export default function Dashboard() {
               width: "100%",
               maxWidth: "380px",
               padding: "24px",
-              boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+              boxShadow:
+                "0 20px 40px rgba(0,0,0,0.2)",
               position: "relative",
             }}
           >
             <RiCloseLine
               size={18}
               style={{
-                position: "absolute",
+                position:
+                  "absolute",
                 top: "16px",
                 right: "16px",
-                cursor: "pointer",
-                color: "#9CA3AF",
+                cursor:
+                  "pointer",
+                color:
+                  "#9CA3AF",
               }}
-              onClick={() => setToggleTarget(null)}
+              onClick={() =>
+                setToggleTarget(null)
+              }
             />
 
             <div
@@ -1097,7 +1312,8 @@ export default function Dashboard() {
                 marginBottom: "18px",
               }}
             >
-              {toggleTarget.status === "active"
+              {toggleTarget.status ===
+              "active"
                 ? "Apakah kamu yakin ingin menonaktifkan data ini?"
                 : "Apakah kamu yakin ingin mengaktifkan kembali data ini?"}
             </div>
@@ -1122,19 +1338,23 @@ export default function Dashboard() {
                   cursor: "pointer",
                 }}
               >
-                {toggleTarget.status === "active"
+                {toggleTarget.status ===
+                "active"
                   ? "YA, NON-AKTIFKAN DATA"
                   : "YA, AKTIFKAN DATA"}
               </button>
 
               <button
-                onClick={() => setToggleTarget(null)}
+                onClick={() =>
+                  setToggleTarget(null)
+                }
                 style={{
                   flex: 1,
                   padding: "11px",
                   fontSize: "12px",
                   fontWeight: 600,
-                  border: "1px solid #E5E7EB",
+                  border:
+                    "1px solid #E5E7EB",
                   background: "white",
                   color: "#374151",
                   cursor: "pointer",
@@ -1152,10 +1372,13 @@ export default function Dashboard() {
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.45)",
+            background:
+              "rgba(0,0,0,0.45)",
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            alignItems:
+              "center",
+            justifyContent:
+              "center",
             zIndex: 60,
             padding: "16px",
           }}
@@ -1166,15 +1389,19 @@ export default function Dashboard() {
               borderRadius: "14px",
               width: "100%",
               maxWidth: "480px",
-              padding: "22px 24px",
-              boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+              padding:
+                "22px 24px",
+              boxShadow:
+                "0 20px 40px rgba(0,0,0,0.2)",
             }}
           >
             <div
               style={{
                 display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
+                justifyContent:
+                  "space-between",
+                alignItems:
+                  "center",
                 marginBottom: "14px",
               }}
             >
@@ -1191,10 +1418,16 @@ export default function Dashboard() {
               <RiCloseLine
                 size={18}
                 style={{
-                  cursor: "pointer",
-                  color: "#9CA3AF",
+                  cursor:
+                    "pointer",
+                  color:
+                    "#9CA3AF",
                 }}
-                onClick={() => setShowDatePicker(false)}
+                onClick={() =>
+                  setShowDatePicker(
+                    false
+                  )
+                }
               />
             </div>
 
@@ -1202,25 +1435,54 @@ export default function Dashboard() {
               style={{
                 display: "flex",
                 gap: "16px",
-                flexWrap: "wrap",
+                flexWrap:
+                  "wrap",
               }}
             >
               <MiniCalendar
                 year={leftCal.year}
                 month={leftCal.month}
-                onPrev={() => shiftMonth(leftCal, setLeftCal, -1)}
-                onNext={() => shiftMonth(leftCal, setLeftCal, 1)}
+                onPrev={() =>
+                  shiftMonth(
+                    leftCal,
+                    setLeftCal,
+                    -1
+                  )
+                }
+                onNext={() =>
+                  shiftMonth(
+                    leftCal,
+                    setLeftCal,
+                    1
+                  )
+                }
                 selected={dateFrom}
-                onSelectDate={(d) => setDateFrom(d)}
+                onSelectDate={(d) =>
+                  setDateFrom(d)
+                }
               />
 
               <MiniCalendar
                 year={rightCal.year}
                 month={rightCal.month}
-                onPrev={() => shiftMonth(rightCal, setRightCal, -1)}
-                onNext={() => shiftMonth(rightCal, setRightCal, 1)}
+                onPrev={() =>
+                  shiftMonth(
+                    rightCal,
+                    setRightCal,
+                    -1
+                  )
+                }
+                onNext={() =>
+                  shiftMonth(
+                    rightCal,
+                    setRightCal,
+                    1
+                  )
+                }
                 selected={dateTo}
-                onSelectDate={(d) => setDateTo(d)}
+                onSelectDate={(d) =>
+                  setDateTo(d)
+                }
               />
             </div>
 
@@ -1239,8 +1501,10 @@ export default function Dashboard() {
                 <div
                   style={{
                     fontSize: "11px",
-                    color: "#9CA3AF",
-                    marginBottom: "4px",
+                    color:
+                      "#9CA3AF",
+                    marginBottom:
+                      "4px",
                   }}
                 >
                   Date
@@ -1248,14 +1512,21 @@ export default function Dashboard() {
 
                 <div
                   style={{
-                    border: "1px solid #E5E7EB",
-                    borderRadius: "8px",
-                    padding: "8px 10px",
-                    fontSize: "12px",
-                    color: "#374151",
+                    border:
+                      "1px solid #E5E7EB",
+                    borderRadius:
+                      "8px",
+                    padding:
+                      "8px 10px",
+                    fontSize:
+                      "12px",
+                    color:
+                      "#374151",
                   }}
                 >
-                  {formatTanggalID(dateFrom)}
+                  {formatTanggalID(
+                    dateFrom
+                  )}
                 </div>
               </div>
 
@@ -1267,8 +1538,10 @@ export default function Dashboard() {
                 <div
                   style={{
                     fontSize: "11px",
-                    color: "#9CA3AF",
-                    marginBottom: "4px",
+                    color:
+                      "#9CA3AF",
+                    marginBottom:
+                      "4px",
                   }}
                 >
                   Sampai
@@ -1276,31 +1549,46 @@ export default function Dashboard() {
 
                 <div
                   style={{
-                    border: "1px solid #E5E7EB",
-                    borderRadius: "8px",
-                    padding: "8px 10px",
-                    fontSize: "12px",
-                    color: "#374151",
+                    border:
+                      "1px solid #E5E7EB",
+                    borderRadius:
+                      "8px",
+                    padding:
+                      "8px 10px",
+                    fontSize:
+                      "12px",
+                    color:
+                      "#374151",
                   }}
                 >
-                  {formatTanggalID(dateTo)}
+                  {formatTanggalID(
+                    dateTo
+                  )}
                 </div>
               </div>
             </div>
 
             <button
-              onClick={() => setShowDatePicker(false)}
+              onClick={() =>
+                setShowDatePicker(
+                  false
+                )
+              }
               style={{
                 width: "100%",
-                marginTop: "18px",
+                marginTop:
+                  "18px",
                 padding: "11px",
-                fontSize: "12px",
+                fontSize:
+                  "12px",
                 fontWeight: 600,
-                borderRadius: "8px",
+                borderRadius:
+                  "8px",
                 border: "none",
                 background: BLUE,
                 color: "white",
-                cursor: "pointer",
+                cursor:
+                  "pointer",
               }}
             >
               TERAPKAN
@@ -1314,10 +1602,13 @@ export default function Dashboard() {
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.45)",
+            background:
+              "rgba(0,0,0,0.45)",
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            alignItems:
+              "center",
+            justifyContent:
+              "center",
             zIndex: 50,
             padding: "16px",
           }}
@@ -1329,15 +1620,19 @@ export default function Dashboard() {
               width: "100%",
               maxWidth: "420px",
               padding: "24px",
-              boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+              boxShadow:
+                "0 20px 40px rgba(0,0,0,0.2)",
             }}
           >
             <div
               style={{
                 display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "18px",
+                justifyContent:
+                  "space-between",
+                alignItems:
+                  "center",
+                marginBottom:
+                  "18px",
               }}
             >
               <div
@@ -1353,38 +1648,66 @@ export default function Dashboard() {
               <RiCloseLine
                 size={20}
                 style={{
-                  cursor: "pointer",
-                  color: "#9CA3AF",
+                  cursor:
+                    "pointer",
+                  color:
+                    "#9CA3AF",
                 }}
-                onClick={() => setDetailUser(null)}
+                onClick={() =>
+                  setDetailUser(null)
+                }
               />
             </div>
 
             <table
               style={{
                 width: "100%",
-                borderCollapse: "collapse",
+                borderCollapse:
+                  "collapse",
                 fontSize: "14px",
               }}
             >
               <tbody>
-                <DetailRow label="Title" value={detailUser.title} />
+                <DetailRow
+                  label="Title"
+                  value={
+                    detailUser.title
+                  }
+                />
 
-                <DetailRow label="Nama" value={detailUser.nama} />
+                <DetailRow
+                  label="Nama"
+                  value={
+                    detailUser.nama
+                  }
+                />
 
                 <DetailRow
                   label="No. Handphone"
                   value={`🇮🇩 ${detailUser.noHp}`}
                 />
 
-                <DetailRow label="Email" value={detailUser.email} />
+                <DetailRow
+                  label="Email"
+                  value={
+                    detailUser.email
+                  }
+                />
 
                 <DetailRow
                   label="Tanggal Lahir"
-                  value={detailUser.tanggalLahir}
+                  value={
+                    detailUser.tanggalLahir
+                  }
                 />
 
-                <DetailRow label="Roles" value={detailUser.roles} last />
+                <DetailRow
+                  label="Roles"
+                  value={
+                    detailUser.roles
+                  }
+                  last
+                />
               </tbody>
             </table>
           </div>
@@ -1408,16 +1731,20 @@ function DetailRow({ label, value, last }) {
   return (
     <tr
       style={{
-        borderBottom: last ? "none" : "1px solid #F3F4F6",
+        borderBottom: last
+          ? "none"
+          : "1px solid #F3F4F6",
       }}
     >
       <td
         style={{
-          padding: "12px 8px 12px 0",
+          padding:
+            "12px 8px 12px 0",
           color: "#6B7280",
           fontWeight: 600,
           width: "40%",
-          verticalAlign: "top",
+          verticalAlign:
+            "top",
         }}
       >
         {label}

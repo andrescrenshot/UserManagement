@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import Layout from "./Component/Layout";
 import Login from "./Pages/Login";
@@ -8,6 +8,16 @@ import EditUser from "./Pages/EditUser";
 import Register from "./Pages/Register";
 import Profile from "./Pages/Profile";
 
+import { isLoggedIn } from "./utils/auth";
+
+function ProtectedRoute({ children }) {
+  if (!isLoggedIn()) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -16,12 +26,20 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/Register" element={<Register />} />
 
-        <Route element={<Layout />}>
+        <Route
+          element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }
+        >
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/Profile" element={<Profile />} />{" "}
+          <Route path="/Profile" element={<Profile />} />
           <Route path="/dashboard/tambah" element={<TambahUser />} />
           <Route path="/dashboard/edit/:id" element={<EditUser />} />
         </Route>
+
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   );

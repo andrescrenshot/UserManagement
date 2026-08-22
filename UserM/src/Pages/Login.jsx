@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const API_URL = import.meta.env.VITE_API_URL;
 
 export default function Login() {
@@ -76,6 +77,41 @@ export default function Login() {
     );
   };
 
+  const saveLoginSession = (token, user) => {
+    if (rememberMe) {
+      const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
+
+      localStorage.setItem("token", token);
+      localStorage.setItem(
+        "current_user",
+        JSON.stringify(user)
+      );
+      localStorage.setItem("isLoggedIn", "true");
+      localStorage.setItem("rememberMe", "true");
+      localStorage.setItem(
+        "expiresAt",
+        expiresAt.toString()
+      );
+
+      sessionStorage.removeItem("token");
+      sessionStorage.removeItem("current_user");
+      sessionStorage.removeItem("isLoggedIn");
+    } else {
+      sessionStorage.setItem("token", token);
+      sessionStorage.setItem(
+        "current_user",
+        JSON.stringify(user)
+      );
+      sessionStorage.setItem("isLoggedIn", "true");
+
+      localStorage.removeItem("token");
+      localStorage.removeItem("current_user");
+      localStorage.removeItem("isLoggedIn");
+      localStorage.removeItem("rememberMe");
+      localStorage.removeItem("expiresAt");
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -126,7 +162,7 @@ export default function Login() {
         body: JSON.stringify({
           email: email.trim(),
           password,
-          rememberMe,
+          remember_me: rememberMe,
         }),
       });
 
@@ -212,9 +248,7 @@ export default function Login() {
         return;
       }
 
-      sessionStorage.setItem("token", token);
-      sessionStorage.setItem("current_user", JSON.stringify(user));
-      sessionStorage.setItem("isLoggedIn", "true");
+      saveLoginSession(token, user);
 
       console.log("TOKEN LOGIN:", token);
       console.log("USER LOGIN:", user);
@@ -489,6 +523,7 @@ export default function Login() {
             <span className="text-muted">
               Belum punya akun?
             </span>{" "}
+
             <button
               type="button"
               onClick={() => navigate("/register")}

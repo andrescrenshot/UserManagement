@@ -1,13 +1,11 @@
+import { getAuthToken, clearAuth } from "../utils/auth";
+
 const API_URL =
   import.meta.env.VITE_API_URL ||
   "https://usermanagement-production-f2c5.up.railway.app";
 
-const getToken = () => {
-  return localStorage.getItem("token");
-};
-
 const getHeaders = () => {
-  const token = getToken();
+  const token = getAuthToken();
 
   return {
     Accept: "application/json",
@@ -23,7 +21,7 @@ const getHeaders = () => {
 const parseResponse = async (response) => {
   const text = await response.text();
 
-  let body = {};
+  let body;
 
   try {
     body = text ? JSON.parse(text) : {};
@@ -43,6 +41,10 @@ const parseResponse = async (response) => {
 
     error.status = response.status;
     error.response = body;
+
+    if (response.status === 401) {
+      clearAuth();
+    }
 
     throw error;
   }
