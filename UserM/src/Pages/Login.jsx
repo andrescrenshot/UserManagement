@@ -2,25 +2,108 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 
+import {
+  saveAuth,
+  updateCurrentUser,
+} from "../utils/auth";
+
+import { getUserApi } from "../api/userApi";
+
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "https://usermanagement-production-f2c5.up.railway.app";
+
+const normalizeUser = (
+  user,
+  fallbackEmail = ""
+) => {
+  if (!user) return null;
+
+  return {
+    ...user,
+    id: user.id ?? user.user_id ?? null,
+
+    nama:
+      user.nama ||
+      user.name ||
+      user.full_name ||
+      user.fullName ||
+      "",
+
+    email:
+      user.email ||
+      fallbackEmail ||
+      "",
+
+    noHp:
+      user.noHp ||
+      user.no_hp ||
+      user.phone ||
+      "",
+
+    tanggalLahir:
+      user.tanggalLahir ||
+      user.tanggal_lahir ||
+      user.birth_date ||
+      "",
+
+    roles:
+      user.roles ||
+      user.role ||
+      "",
+  };
+};
+
+const extractUserFromResponse = (
+  data,
+  fallbackEmail
+) => {
+  const user =
+    data?.user ||
+    data?.data?.user ||
+    data?.data ||
+    null;
+
+  return normalizeUser(
+    user,
+    fallbackEmail
+  );
+};
+
+const extractUserId = (user) => {
+  return (
+    user?.id ??
+    user?.user_id ??
+    user?.userId ??
+    null
+  );
+};
 
 export default function Login() {
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [password, setPassword] =
+    useState("");
+
+  const [rememberMe, setRememberMe] =
+    useState(false);
+
+  const [showPassword, setShowPassword] =
+    useState(false);
 
   const [errors, setErrors] = useState({
     email: "",
     password: "",
   });
 
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState("");
+  const [submitting, setSubmitting] =
+    useState(false);
+
+  const [submitError, setSubmitError] =
+    useState("");
 
   const validateEmail = (value) => {
     if (value.trim() === "") {
@@ -77,46 +160,14 @@ export default function Login() {
     );
   };
 
-  const saveLoginSession = (token, user) => {
-    if (rememberMe) {
-      const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
-
-      localStorage.setItem("token", token);
-      localStorage.setItem(
-        "current_user",
-        JSON.stringify(user)
-      );
-      localStorage.setItem("isLoggedIn", "true");
-      localStorage.setItem("rememberMe", "true");
-      localStorage.setItem(
-        "expiresAt",
-        expiresAt.toString()
-      );
-
-      sessionStorage.removeItem("token");
-      sessionStorage.removeItem("current_user");
-      sessionStorage.removeItem("isLoggedIn");
-    } else {
-      sessionStorage.setItem("token", token);
-      sessionStorage.setItem(
-        "current_user",
-        JSON.stringify(user)
-      );
-      sessionStorage.setItem("isLoggedIn", "true");
-
-      localStorage.removeItem("token");
-      localStorage.removeItem("current_user");
-      localStorage.removeItem("isLoggedIn");
-      localStorage.removeItem("rememberMe");
-      localStorage.removeItem("expiresAt");
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const emailError = validateEmail(email);
-    const passwordError = validatePassword(password);
+    const emailError =
+      validateEmail(email);
+
+    const passwordError =
+      validatePassword(password);
 
     if (emailError || passwordError) {
       setErrors({
@@ -154,29 +205,41 @@ export default function Login() {
     setSubmitError("");
 
     try {
-      const response = await fetch(`${API_URL}/api/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: email.trim(),
-          password,
-          remember_me: rememberMe,
-        }),
-      });
+      const response = await fetch(
+        `${API_URL}/api/auth/login`,
+        {
+          method: "POST",
 
-      const text = await response.text();
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+            email: email.trim(),
+            password,
+            remember_me: rememberMe,
+          }),
+        }
+      );
+
+      const text =
+        await response.text();
 
       let data = {};
 
       try {
-        data = text ? JSON.parse(text) : {};
+        data = text
+          ? JSON.parse(text)
+          : {};
       } catch {
         data = {};
       }
 
-      console.log("LOGIN RESPONSE:", data);
+      console.log(
+        "LOGIN RESPONSE:",
+        data
+      );
 
       if (!response.ok) {
         const message =
@@ -191,7 +254,8 @@ export default function Login() {
           icon: "error",
           title: "Login Gagal",
           text: message,
-          confirmButtonColor: "#0B2B8E",
+          confirmButtonColor:
+            "#0B2B8E",
         });
 
         return;
@@ -205,13 +269,11 @@ export default function Login() {
         data?.data?.access_token ||
         data?.data?.accessToken;
 
-      const user =
-        data?.user ||
-        data?.data?.user ||
-        null;
-
       if (!token) {
-        console.error("TOKEN TIDAK DITEMUKAN:", data);
+        console.error(
+          "TOKEN TIDAK DITEMUKAN:",
+          data
+        );
 
         setSubmitError(
           "Login berhasil tetapi token dari backend tidak ditemukan."
@@ -221,55 +283,156 @@ export default function Login() {
 
         await Swal.fire({
           icon: "error",
-          title: "Token Tidak Ditemukan",
+          title:
+            "Token Tidak Ditemukan",
           text: "Backend berhasil merespons, tetapi token login tidak dikirim.",
-          confirmButtonColor: "#0B2B8E",
+          confirmButtonColor:
+            "#0B2B8E",
         });
 
         return;
       }
 
-      if (!user) {
-        console.error("USER TIDAK DITEMUKAN:", data);
-
-        setSubmitError(
-          "Login berhasil tetapi data user tidak ditemukan."
+      let user =
+        extractUserFromResponse(
+          data,
+          email.trim()
         );
 
-        setSubmitting(false);
+      console.log(
+        "USER DARI LOGIN:",
+        user
+      );
 
-        await Swal.fire({
-          icon: "error",
-          title: "Data User Tidak Ditemukan",
-          text: "Backend tidak mengirim data user.",
-          confirmButtonColor: "#0B2B8E",
-        });
+      /*
+       * Kalau login response tidak membawa
+       * nama lengkap, ambil data user lagi
+       * berdasarkan ID.
+       */
+      const userId =
+        extractUserId(user);
 
-        return;
+      if (userId) {
+        try {
+          const userResponse =
+            await getUserApi(userId);
+
+          console.log(
+            "DETAIL USER LOGIN:",
+            userResponse
+          );
+
+          let detailUser = null;
+
+          if (
+            userResponse &&
+            !Array.isArray(
+              userResponse
+            )
+          ) {
+            if (
+              userResponse?.data &&
+              !Array.isArray(
+                userResponse.data
+              )
+            ) {
+              detailUser =
+                userResponse.data;
+            } else if (
+              userResponse?.user
+            ) {
+              detailUser =
+                userResponse.user;
+            } else {
+              detailUser =
+                userResponse;
+            }
+          }
+
+          if (detailUser) {
+            user = {
+              ...user,
+              ...normalizeUser(
+                detailUser,
+                email.trim()
+              ),
+            };
+          }
+        } catch (detailError) {
+          console.warn(
+            "Gagal mengambil detail user setelah login:",
+            detailError
+          );
+        }
       }
 
-      saveLoginSession(token, user);
+      user = normalizeUser(
+        user,
+        email.trim()
+      );
 
-      console.log("TOKEN LOGIN:", token);
-      console.log("USER LOGIN:", user);
-      console.log("REMEMBER ME:", rememberMe);
+      /*
+       * Pastikan minimal email ada.
+       */
+      if (!user.email) {
+        user.email =
+          email.trim();
+      }
 
-      window.dispatchEvent(new Event("user-login"));
+      /*
+       * Simpan token + user sesuai
+       * Remember Me.
+       */
+      saveAuth(
+        token,
+        user,
+        rememberMe
+      );
+
+      updateCurrentUser(user);
+
+      console.log(
+        "USER FINAL:",
+        user
+      );
+
+      console.log(
+        "TOKEN LOGIN:",
+        token
+      );
+
+      console.log(
+        "REMEMBER ME:",
+        rememberMe
+      );
+
+      window.dispatchEvent(
+        new Event("user-login")
+      );
 
       setSubmitting(false);
 
       await Swal.fire({
         icon: "success",
         title: "Login Berhasil",
-        text: `Selamat datang, ${user.nama || "User"}!`,
-        confirmButtonColor: "#0B2B8E",
+        text: `Selamat datang, ${
+          user.nama ||
+          user.email ||
+          "User"
+        }!`,
+        confirmButtonColor:
+          "#0B2B8E",
         timer: 1500,
-        showConfirmButton: false,
+        showConfirmButton:
+          false,
       });
 
-      navigate("/Dashboard");
+      navigate("/dashboard");
     } catch (error) {
-      console.error("Login error:", error);
+      console.error(
+        "Login error:",
+        error
+      );
 
       const message =
         "Tidak dapat terhubung ke server. Pastikan backend Railway sedang aktif dan VITE_API_URL sudah benar.";
@@ -279,9 +442,11 @@ export default function Login() {
 
       await Swal.fire({
         icon: "error",
-        title: "Server Tidak Terhubung",
+        title:
+          "Server Tidak Terhubung",
         text: message,
-        confirmButtonColor: "#0B2B8E",
+        confirmButtonColor:
+          "#0B2B8E",
       });
     }
   };
@@ -292,7 +457,8 @@ export default function Login() {
       style={{
         minHeight: "100vh",
         width: "100%",
-        backgroundColor: "#EEF1FB",
+        backgroundColor:
+          "#EEF1FB",
         padding: "20px",
       }}
     >
@@ -302,7 +468,8 @@ export default function Login() {
           width: "100%",
           maxWidth: "480px",
           borderRadius: "20px",
-          padding: "clamp(24px, 5vw, 40px)",
+          padding:
+            "clamp(24px, 5vw, 40px)",
         }}
       >
         <div className="text-center mb-4">
@@ -310,7 +477,8 @@ export default function Login() {
             className="fw-bold mb-2"
             style={{
               color: "#0B2B8E",
-              fontSize: "clamp(25px, 6vw, 32px)",
+              fontSize:
+                "clamp(25px, 6vw, 32px)",
             }}
           >
             Masuk
@@ -322,7 +490,8 @@ export default function Login() {
               fontSize: "14px",
             }}
           >
-            Silakan masuk ke akun kamu
+            Silakan masuk ke akun
+            kamu
           </p>
         </div>
 
@@ -339,7 +508,9 @@ export default function Login() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <form
+          onSubmit={handleSubmit}
+        >
           <div className="mb-3">
             <label
               htmlFor="loginEmail"
@@ -355,17 +526,24 @@ export default function Login() {
               type="email"
               id="loginEmail"
               className={`form-control ${
-                errors.email ? "is-invalid" : ""
+                errors.email
+                  ? "is-invalid"
+                  : ""
               }`}
               placeholder="Masukkan email"
               value={email}
-              onChange={handleEmailChange}
+              onChange={
+                handleEmailChange
+              }
               autoComplete="email"
               style={{
-                borderRadius: "10px",
-                padding: "12px 13px",
+                borderRadius:
+                  "10px",
+                padding:
+                  "12px 13px",
                 fontSize: "14px",
-                minHeight: "46px",
+                minHeight:
+                  "46px",
               }}
             />
 
@@ -389,20 +567,31 @@ export default function Login() {
 
             <div className="position-relative">
               <input
-                type={showPassword ? "text" : "password"}
+                type={
+                  showPassword
+                    ? "text"
+                    : "password"
+                }
                 id="loginPassword"
                 className={`form-control ${
-                  errors.password ? "is-invalid" : ""
+                  errors.password
+                    ? "is-invalid"
+                    : ""
                 }`}
                 placeholder="Masukkan kata sandi"
                 value={password}
-                onChange={handlePasswordChange}
+                onChange={
+                  handlePasswordChange
+                }
                 autoComplete="current-password"
                 style={{
-                  borderRadius: "10px",
-                  padding: "12px 45px 12px 13px",
+                  borderRadius:
+                    "10px",
+                  padding:
+                    "12px 45px 12px 13px",
                   fontSize: "14px",
-                  minHeight: "46px",
+                  minHeight:
+                    "46px",
                 }}
               />
 
@@ -416,14 +605,19 @@ export default function Login() {
                 }
                 style={{
                   border: "none",
-                  background: "none",
+                  background:
+                    "none",
                   right: "5px",
                   top: "50%",
-                  transform: "translateY(-50%)",
+                  transform:
+                    "translateY(-50%)",
                   padding: "8px",
                 }}
                 onClick={() =>
-                  setShowPassword((prev) => !prev)
+                  setShowPassword(
+                    (prev) =>
+                      !prev
+                  )
                 }
               >
                 <i
@@ -433,7 +627,8 @@ export default function Login() {
                       : "bi-eye"
                   }`}
                   style={{
-                    fontSize: "18px",
+                    fontSize:
+                      "18px",
                   }}
                 />
               </button>
@@ -458,27 +653,37 @@ export default function Login() {
               <input
                 type="checkbox"
                 id="rememberMe"
-                checked={rememberMe}
+                checked={
+                  rememberMe
+                }
                 onChange={(e) =>
-                  setRememberMe(e.target.checked)
+                  setRememberMe(
+                    e.target
+                      .checked
+                  )
                 }
                 style={{
                   width: "16px",
                   height: "16px",
-                  cursor: "pointer",
+                  cursor:
+                    "pointer",
                 }}
               />
 
               <label
                 htmlFor="rememberMe"
                 style={{
-                  fontSize: "13px",
-                  color: "#6B7280",
-                  cursor: "pointer",
+                  fontSize:
+                    "13px",
+                  color:
+                    "#6B7280",
+                  cursor:
+                    "pointer",
                   margin: 0,
                 }}
               >
-                Ingat saya 30 hari
+                Ingat saya 30
+                hari
               </label>
             </div>
 
@@ -486,9 +691,14 @@ export default function Login() {
               type="button"
               className="btn p-0 text-dark text-decoration-none fw-semibold"
               style={{
-                fontSize: "13px",
+                fontSize:
+                  "13px",
               }}
-              onClick={() => navigate("/register")}
+              onClick={() =>
+                navigate(
+                  "/register"
+                )
+              }
             >
               Lupa Sandi?
             </button>
@@ -497,21 +707,31 @@ export default function Login() {
           <button
             type="submit"
             className="btn w-100 fw-semibold text-white"
-            disabled={submitting}
+            disabled={
+              submitting
+            }
             style={{
               backgroundColor:
-                isFormValid() && !submitting
+                isFormValid() &&
+                !submitting
                   ? "#0B2B8E"
                   : "#A0A3BD",
-              borderRadius: "999px",
-              padding: "12px 0",
-              minHeight: "46px",
-              letterSpacing: "0.4px",
+              borderRadius:
+                "999px",
+              padding:
+                "12px 0",
+              minHeight:
+                "46px",
+              letterSpacing:
+                "0.4px",
               border: "none",
-              fontSize: "14px",
+              fontSize:
+                "14px",
             }}
           >
-            {submitting ? "Memproses..." : "Masuk"}
+            {submitting
+              ? "Memproses..."
+              : "Masuk"}
           </button>
 
           <div
@@ -521,18 +741,27 @@ export default function Login() {
             }}
           >
             <span className="text-muted">
-              Belum punya akun?
+              Belum punya
+              akun?
             </span>{" "}
 
             <button
               type="button"
-              onClick={() => navigate("/register")}
+              onClick={() =>
+                navigate(
+                  "/register"
+                )
+              }
               className="btn p-0 fw-bold"
               style={{
-                color: "#0B2B8E",
-                fontSize: "14px",
-                border: "none",
-                background: "none",
+                color:
+                  "#0B2B8E",
+                fontSize:
+                  "14px",
+                border:
+                  "none",
+                background:
+                  "none",
               }}
             >
               Daftar sekarang
@@ -546,12 +775,15 @@ export default function Login() {
               lineHeight: 1.6,
             }}
           >
-            Dengan masuk ke dalam akun, kamu menyetujui{" "}
+            Dengan masuk ke
+            dalam akun, kamu
+            menyetujui{" "}
             <a
               href="#"
               className="fw-semibold text-decoration-none"
               style={{
-                color: "#0B2B8E",
+                color:
+                  "#0B2B8E",
               }}
             >
               Syarat & Ketentuan
@@ -561,7 +793,8 @@ export default function Login() {
               href="#"
               className="fw-semibold text-decoration-none"
               style={{
-                color: "#0B2B8E",
+                color:
+                  "#0B2B8E",
               }}
             >
               Kebijakan Privasi

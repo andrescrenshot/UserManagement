@@ -27,7 +27,8 @@ const parseResponse = async (response) => {
     body = text ? JSON.parse(text) : {};
   } catch {
     body = {
-      message: text || "Response server tidak valid.",
+      message:
+        text || "Response server tidak valid.",
     };
   }
 
@@ -53,13 +54,16 @@ const parseResponse = async (response) => {
 };
 
 const request = async (path, options = {}) => {
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: {
-      ...getHeaders(),
-      ...(options.headers || {}),
-    },
-  });
+  const response = await fetch(
+    `${API_URL}${path}`,
+    {
+      ...options,
+      headers: {
+        ...getHeaders(),
+        ...(options.headers || {}),
+      },
+    }
+  );
 
   return parseResponse(response);
 };
@@ -98,7 +102,10 @@ export const updateUserApi = async (id, data) => {
   });
 };
 
-export const deleteUserApi = async (id, reason = "") => {
+export const deleteUserApi = async (
+  id,
+  reason = ""
+) => {
   if (!id) {
     throw new Error("ID user tidak ditemukan.");
   }

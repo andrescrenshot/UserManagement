@@ -6,11 +6,19 @@ export const saveAuth = (token, user, rememberMe = false) => {
   storage.setItem("token", token);
   storage.setItem("current_user", JSON.stringify(user));
   storage.setItem("isLoggedIn", "true");
-  storage.setItem("rememberMe", rememberMe ? "true" : "false");
+  storage.setItem(
+    "rememberMe",
+    rememberMe ? "true" : "false"
+  );
 
   if (rememberMe) {
-    const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
-    localStorage.setItem("expiresAt", String(expiresAt));
+    const expiresAt =
+      Date.now() + 30 * 24 * 60 * 60 * 1000;
+
+    localStorage.setItem(
+      "expiresAt",
+      String(expiresAt)
+    );
   }
 };
 
@@ -18,9 +26,13 @@ export const getAuthToken = () => {
   const localToken = localStorage.getItem("token");
 
   if (localToken) {
-    const expiresAt = localStorage.getItem("expiresAt");
+    const expiresAt =
+      localStorage.getItem("expiresAt");
 
-    if (expiresAt && Date.now() >= Number(expiresAt)) {
+    if (
+      expiresAt &&
+      Date.now() >= Number(expiresAt)
+    ) {
       clearAuth();
       return null;
     }
@@ -32,7 +44,8 @@ export const getAuthToken = () => {
 };
 
 export const getCurrentUser = () => {
-  const localUser = localStorage.getItem("current_user");
+  const localUser =
+    localStorage.getItem("current_user");
 
   if (localUser) {
     try {
@@ -43,7 +56,8 @@ export const getCurrentUser = () => {
     }
   }
 
-  const sessionUser = sessionStorage.getItem("current_user");
+  const sessionUser =
+    sessionStorage.getItem("current_user");
 
   if (sessionUser) {
     try {
@@ -55,6 +69,22 @@ export const getCurrentUser = () => {
   }
 
   return null;
+};
+
+export const updateCurrentUser = (user) => {
+  if (!user) return;
+
+  const rememberMe =
+    localStorage.getItem("rememberMe") === "true";
+
+  const storage = rememberMe
+    ? localStorage
+    : sessionStorage;
+
+  storage.setItem(
+    "current_user",
+    JSON.stringify(user)
+  );
 };
 
 export const isLoggedIn = () => {
