@@ -15,115 +15,241 @@ import {
   RiUserLine,
 } from "react-icons/ri";
 
-const API_URL = import.meta.env.VITE_API_URL;
+import {
+  getCurrentUser,
+  getAuthToken,
+  updateCurrentUser,
+  clearAuth,
+} from "../utils/auth";
 
-const SideBar = ({ menuAktifDefault = "beranda" }) => {
+import { getUserApi } from "../api/userApi";
+
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "https://usermanagement-production-f2c5.up.railway.app";
+
+const normalizeUser = (user) => {
+  if (!user) {
+    return null;
+  }
+
+  return {
+    ...user,
+    id: user.id ?? user.user_id ?? user.userId ?? null,
+
+    nama:
+      user.nama ||
+      user.name ||
+      user.full_name ||
+      user.fullName ||
+      "",
+
+    email: user.email || "",
+
+    noHp:
+      user.noHp ||
+      user.no_hp ||
+      user.phone ||
+      "",
+
+    tanggalLahir:
+      user.tanggalLahir ||
+      user.tanggal_lahir ||
+      user.birth_date ||
+      "",
+
+    roles:
+      user.roles ||
+      user.role ||
+      "",
+
+    profile_photo:
+      user.profile_photo ||
+      user.profilePhoto ||
+      "",
+  };
+};
+
+const SideBar = ({
+  menuAktifDefault = "beranda",
+}) => {
   const navigate = useNavigate();
 
   const [menuAktif, setMenuAktif] =
     useState(menuAktifDefault);
 
-  const [kelasOpen, setKelasOpen] = useState(true);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [showLogoutConfirm, setShowLogoutConfirm] =
+  const [kelasOpen, setKelasOpen] =
+    useState(true);
+
+  const [profileOpen, setProfileOpen] =
     useState(false);
+
+  const [
+    showLogoutConfirm,
+    setShowLogoutConfirm,
+  ] = useState(false);
 
   const [user, setUser] = useState(null);
 
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const cachedUser =
-          sessionStorage.getItem("current_user");
+  const loadUser = async () => {
+    try {
+      const token = getAuthToken();
 
-        if (cachedUser) {
-          setUser(JSON.parse(cachedUser));
-        }
+      if (!token) {
+        setUser(null);
+        return;
+      }
 
-        const token =
-          sessionStorage.getItem("token");
+      const cachedUser = getCurrentUser();
 
-        if (!token || !API_URL) {
-          return;
-        }
+      if (cachedUser) {
+        const normalizedCachedUser =
+          normalizeUser(cachedUser);
 
-        const response = await fetch(
-          `${API_URL}/api/user`,
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        setUser(normalizedCachedUser);
+      }
 
-        if (!response.ok) {
-          return;
-        }
+      let userId =
+        cachedUser?.id ??
+        cachedUser?.user_id ??
+        cachedUser?.userId ??
+        null;
 
-        const text = await response.text();
-
-        let data = {};
-
+      /*
+       * Kalau current_user sudah punya ID,
+       * ambil detail user terbaru dari backend.
+       */
+      if (userId) {
         try {
-          data = text ? JSON.parse(text) : {};
-        } catch {
-          data = {};
-        }
+          const response =
+            await getUserApi(userId);
 
-        const userData =
-          data?.user ||
-          data?.data?.user ||
-          data?.data ||
-          data;
+          console.log(
+            "SIDEBAR USER RESPONSE:",
+            response
+          );
 
-        if (userData?.email) {
-          setUser(userData);
+          let backendUser = null;
 
-          sessionStorage.setItem(
-            "current_user",
-            JSON.stringify(userData)
+          if (
+            response?.data &&
+            !Array.isArray(response.data)
+          ) {
+            backendUser = response.data;
+          } else if (
+            response?.user
+          ) {
+            backendUser = response.user;
+          } else if (
+            response?.data?.user
+          ) {
+            backendUser =
+              response.data.user;
+          } else if (
+            !Array.isArray(response)
+          ) {
+            backendUser = response;
+          }
+
+          if (backendUser) {
+            const normalizedUser =
+              normalizeUser(
+                backendUser
+              );
+
+            if (
+              normalizedUser &&
+              (normalizedUser.nama ||
+                normalizedUser.email)
+            ) {
+              setUser(normalizedUser);
+              updateCurrentUser(
+                normalizedUser
+              );
+              return;
+            }
+          }
+        } catch (error) {
+          console.warn(
+            "Tidak bisa mengambil detail user:",
+            error
           );
         }
-      } catch (error) {
-        console.error(
-          "Gagal mengambil data user:",
-          error
+      }
+
+      /*
+       * Kalau backend tidak bisa dipanggil,
+       * tetap gunakan data yang tersimpan.
+       */
+      if (cachedUser) {
+        setUser(
+          normalizeUser(cachedUser)
         );
+      }
+    } catch (error) {
+      console.error(
+        "Gagal memuat user sidebar:",
+        error
+      );
+    }
+  };
+
+  useEffect(() => {
+    loadUser();
+
+    const handleUserLogin = () => {
+      loadUser();
+    };
+
+    const handleUserUpdated = () => {
+      loadUser();
+    };
+
+    const handleStorage = (event) => {
+      if (
+        event.key === "current_user" ||
+        event.key === "token"
+      ) {
+        loadUser();
       }
     };
 
-    loadUser();
-
     window.addEventListener(
       "user-login",
-      loadUser
+      handleUserLogin
     );
 
     window.addEventListener(
       "user-updated",
-      loadUser
+      handleUserUpdated
     );
 
     window.addEventListener(
       "user-logout",
-      loadUser
+      () => {
+        setUser(null);
+      }
+    );
+
+    window.addEventListener(
+      "storage",
+      handleStorage
     );
 
     return () => {
       window.removeEventListener(
         "user-login",
-        loadUser
+        handleUserLogin
       );
 
       window.removeEventListener(
         "user-updated",
-        loadUser
+        handleUserUpdated
       );
 
       window.removeEventListener(
-        "user-logout",
-        loadUser
+        "storage",
+        handleStorage
       );
     };
   }, []);
@@ -134,8 +260,12 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
     }
 
     if (
-      user.profile_photo.startsWith("http://") ||
-      user.profile_photo.startsWith("https://")
+      user.profile_photo.startsWith(
+        "http://"
+      ) ||
+      user.profile_photo.startsWith(
+        "https://"
+      )
     ) {
       return user.profile_photo;
     }
@@ -144,12 +274,14 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
   };
 
   const getInitial = () => {
-    if (!user?.nama) {
+    const nama =
+      user?.nama?.trim();
+
+    if (!nama) {
       return "U";
     }
 
-    return user.nama
-      .trim()
+    return nama
       .charAt(0)
       .toUpperCase();
   };
@@ -164,19 +296,24 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
     cursor: "pointer",
     color: "white",
     fontSize: "14px",
-    fontWeight: menuAktif === key ? 600 : 400,
+    fontWeight:
+      menuAktif === key
+        ? 600
+        : 400,
     background:
       menuAktif === key
         ? "rgba(255,255,255,0.18)"
         : "transparent",
-    transition: "background 0.2s",
+    transition:
+      "background 0.2s",
   });
 
   const subItemStyle = (key) => ({
     display: "flex",
     alignItems: "center",
     gap: "10px",
-    padding: "10px 14px 10px 30px",
+    padding:
+      "10px 14px 10px 30px",
     marginBottom: "4px",
     borderRadius: "10px",
     cursor: "pointer",
@@ -185,12 +322,16 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
         ? "white"
         : "rgba(255,255,255,0.75)",
     fontSize: "13px",
-    fontWeight: menuAktif === key ? 600 : 400,
+    fontWeight:
+      menuAktif === key
+        ? 600
+        : 400,
     background:
       menuAktif === key
         ? "rgba(255,255,255,0.18)"
         : "transparent",
-    transition: "background 0.2s",
+    transition:
+      "background 0.2s",
   });
 
   const handleProfileClick = () => {
@@ -208,22 +349,23 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
   };
 
   const handleConfirmLogout = () => {
-    sessionStorage.removeItem("token");
-    sessionStorage.removeItem("current_user");
-    sessionStorage.removeItem("isLoggedIn");
+    clearAuth();
 
     setUser(null);
     setProfileOpen(false);
     setShowLogoutConfirm(false);
 
-    window.dispatchEvent(new Event("user-logout"));
+    window.dispatchEvent(
+      new Event("user-logout")
+    );
 
-    navigate("/", {
+    navigate("/login", {
       replace: true,
     });
   };
 
-  const profileImage = getProfileImage();
+  const profileImage =
+    getProfileImage();
 
   return (
     <>
@@ -234,9 +376,11 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
           background: "#1226C4",
           display: "flex",
           flexDirection: "column",
-          justifyContent: "space-between",
+          justifyContent:
+            "space-between",
           padding: "22px 14px",
-          boxSizing: "border-box",
+          boxSizing:
+            "border-box",
           flexShrink: 0,
         }}
       >
@@ -246,69 +390,103 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
               color: "white",
               fontSize: "18px",
               fontWeight: 700,
-              letterSpacing: "0.5px",
+              letterSpacing:
+                "0.5px",
               display: "flex",
-              alignItems: "center",
+              alignItems:
+                "center",
               gap: "8px",
               padding: "0 8px",
-              marginBottom: "28px",
+              marginBottom:
+                "28px",
             }}
           >
-            <RiDashboardLine size={30} />
+            <RiDashboardLine
+              size={30}
+            />
             DASHBOARD
           </div>
 
           <div
             onClick={() => {
-              setMenuAktif("beranda");
-              navigate("/homepage");
+              setMenuAktif(
+                "beranda"
+              );
+              navigate(
+                "/homepage"
+              );
             }}
-            style={itemStyle("beranda")}
+            style={itemStyle(
+              "beranda"
+            )}
           >
-            <RiHome5Line size={30} />
+            <RiHome5Line
+              size={30}
+            />
             Beranda
           </div>
 
           <div
             onClick={() => {
-              setMenuAktif("Dashboard");
-              navigate("/dashboard");
+              setMenuAktif(
+                "Dashboard"
+              );
+              navigate(
+                "/dashboard"
+              );
             }}
-            style={itemStyle("Dashboard")}
+            style={itemStyle(
+              "Dashboard"
+            )}
           >
-            <RiUserSettingsLine size={30} />
+            <RiUserSettingsLine
+              size={30}
+            />
             User Management
           </div>
 
           <div
             onClick={() =>
-              setKelasOpen((prev) => !prev)
+              setKelasOpen(
+                (prev) => !prev
+              )
             }
             style={{
               display: "flex",
-              alignItems: "center",
+              alignItems:
+                "center",
               gap: "12px",
-              padding: "12px 14px",
-              marginBottom: "6px",
-              borderRadius: "10px",
-              cursor: "pointer",
+              padding:
+                "12px 14px",
+              marginBottom:
+                "6px",
+              borderRadius:
+                "10px",
+              cursor:
+                "pointer",
               color: "white",
-              fontSize: "14px",
+              fontSize:
+                "14px",
               fontWeight: 600,
             }}
           >
-            <RiBookOpenLine size={30} />
+            <RiBookOpenLine
+              size={30}
+            />
 
             Kelas LMS
 
             <RiArrowDownSLine
               size={18}
               style={{
-                marginLeft: "auto",
-                transform: kelasOpen
-                  ? "rotate(180deg)"
-                  : "rotate(0deg)",
-                transition: "transform 0.2s",
+                marginLeft:
+                  "auto",
+                transform:
+                  kelasOpen
+                    ? "rotate(180deg)"
+                    : "rotate(0deg)",
+                transition:
+                  "transform 0.2s",
               }}
             />
           </div>
@@ -316,39 +494,64 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
           {kelasOpen && (
             <div
               style={{
-                marginBottom: "6px",
+                marginBottom:
+                  "6px",
               }}
             >
               <div
                 onClick={() => {
-                  setMenuAktif("presensi");
-                  navigate("/kelasku");
+                  setMenuAktif(
+                    "presensi"
+                  );
+                  navigate(
+                    "/kelasku"
+                  );
                 }}
-                style={subItemStyle("presensi")}
+                style={subItemStyle(
+                  "presensi"
+                )}
               >
-                <RiFileList3Line size={20} />
+                <RiFileList3Line
+                  size={20}
+                />
                 Presensi Peserta
               </div>
 
               <div
                 onClick={() => {
-                  setMenuAktif("input-nilai");
-                  navigate("/penilaian");
+                  setMenuAktif(
+                    "input-nilai"
+                  );
+                  navigate(
+                    "/penilaian"
+                  );
                 }}
-                style={subItemStyle("input-nilai")}
+                style={subItemStyle(
+                  "input-nilai"
+                )}
               >
-                <RiBarChartLine size={20} />
+                <RiBarChartLine
+                  size={20}
+                />
                 Input Nilai
               </div>
 
               <div
                 onClick={() => {
-                  setMenuAktif("sertifikat");
-                  navigate("/sertifikat");
+                  setMenuAktif(
+                    "sertifikat"
+                  );
+                  navigate(
+                    "/sertifikat"
+                  );
                 }}
-                style={subItemStyle("sertifikat")}
+                style={subItemStyle(
+                  "sertifikat"
+                )}
               >
-                <RiAwardLine size={20} />
+                <RiAwardLine
+                  size={20}
+                />
                 Sertifikat
               </div>
             </div>
@@ -358,30 +561,43 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
         <div>
           <div
             onClick={() =>
-              setProfileOpen((prev) => !prev)
+              setProfileOpen(
+                (prev) => !prev
+              )
             }
             style={{
               display: "flex",
-              alignItems: "center",
+              alignItems:
+                "center",
               gap: "10px",
-              padding: "10px 8px",
-              borderRadius: "12px",
-              cursor: "pointer",
+              padding:
+                "10px 8px",
+              borderRadius:
+                "12px",
+              cursor:
+                "pointer",
               borderTop:
                 "1px solid rgba(255,255,255,0.15)",
-              paddingTop: "18px",
+              paddingTop:
+                "18px",
             }}
           >
             <div
               style={{
                 width: "38px",
                 height: "38px",
-                borderRadius: "50%",
-                overflow: "hidden",
-                background: "#EEF2FF",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
+                borderRadius:
+                  "50%",
+                overflow:
+                  "hidden",
+                background:
+                  "#EEF2FF",
+                display:
+                  "flex",
+                alignItems:
+                  "center",
+                justifyContent:
+                  "center",
                 flexShrink: 0,
               }}
             >
@@ -390,11 +606,16 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
                   src={profileImage}
                   alt="Profile"
                   style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
+                    width:
+                      "100%",
+                    height:
+                      "100%",
+                    objectFit:
+                      "cover",
                   }}
-                  onError={(e) => {
+                  onError={(
+                    e
+                  ) => {
                     e.currentTarget.style.display =
                       "none";
                   }}
@@ -402,9 +623,12 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
               ) : (
                 <span
                   style={{
-                    color: "#1226C4",
-                    fontSize: "16px",
-                    fontWeight: 700,
+                    color:
+                      "#1226C4",
+                    fontSize:
+                      "16px",
+                    fontWeight:
+                      700,
                   }}
                 >
                   {getInitial()}
@@ -415,27 +639,39 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
             <div
               style={{
                 color: "white",
-                fontSize: "14px",
-                fontWeight: 600,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                maxWidth: "110px",
+                fontSize:
+                  "14px",
+                fontWeight:
+                  600,
+                overflow:
+                  "hidden",
+                textOverflow:
+                  "ellipsis",
+                whiteSpace:
+                  "nowrap",
+                maxWidth:
+                  "110px",
               }}
             >
-              {user?.nama || "User"}
+              {user?.nama ||
+                user?.name ||
+                user?.full_name ||
+                "User"}
             </div>
 
             <RiArrowDownSLine
               size={20}
               style={{
-                marginLeft: "auto",
+                marginLeft:
+                  "auto",
                 color: "white",
                 flexShrink: 0,
-                transform: profileOpen
-                  ? "rotate(180deg)"
-                  : "rotate(0deg)",
-                transition: "transform 0.2s",
+                transform:
+                  profileOpen
+                    ? "rotate(180deg)"
+                    : "rotate(0deg)",
+                transition:
+                  "transform 0.2s",
               }}
             />
           </div>
@@ -444,54 +680,85 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
             <div
               style={{
                 marginTop: "6px",
-                background: "white",
-                borderRadius: "8px",
-                overflow: "hidden",
+                background:
+                  "white",
+                borderRadius:
+                  "8px",
+                overflow:
+                  "hidden",
                 boxShadow:
                   "0 4px 12px rgba(0,0,0,0.15)",
               }}
             >
               <button
                 type="button"
-                onClick={handleProfileClick}
+                onClick={
+                  handleProfileClick
+                }
                 style={{
                   width: "100%",
-                  border: "none",
-                  background: "white",
-                  padding: "11px 14px",
-                  display: "flex",
-                  alignItems: "center",
+                  border:
+                    "none",
+                  background:
+                    "white",
+                  padding:
+                    "11px 14px",
+                  display:
+                    "flex",
+                  alignItems:
+                    "center",
                   gap: "10px",
-                  color: "#1226C4",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  textAlign: "left",
+                  color:
+                    "#1226C4",
+                  fontSize:
+                    "14px",
+                  fontWeight:
+                    600,
+                  cursor:
+                    "pointer",
+                  textAlign:
+                    "left",
                 }}
               >
-                <RiUserLine size={20} />
+                <RiUserLine
+                  size={20}
+                />
                 Profile
               </button>
 
               <button
                 type="button"
-                onClick={handleLogoutClick}
+                onClick={
+                  handleLogoutClick
+                }
                 style={{
                   width: "100%",
-                  border: "none",
-                  background: "white",
-                  padding: "11px 14px",
-                  display: "flex",
-                  alignItems: "center",
+                  border:
+                    "none",
+                  background:
+                    "white",
+                  padding:
+                    "11px 14px",
+                  display:
+                    "flex",
+                  alignItems:
+                    "center",
                   gap: "10px",
-                  color: "#dc3545",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  textAlign: "left",
+                  color:
+                    "#dc3545",
+                  fontSize:
+                    "14px",
+                  fontWeight:
+                    600,
+                  cursor:
+                    "pointer",
+                  textAlign:
+                    "left",
                 }}
               >
-                <RiLogoutBoxRLine size={20} />
+                <RiLogoutBoxRLine
+                  size={20}
+                />
                 Keluar
               </button>
             </div>
@@ -500,8 +767,12 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
       </div>
 
       <Modal
-        show={showLogoutConfirm}
-        onHide={handleCancelLogout}
+        show={
+          showLogoutConfirm
+        }
+        onHide={
+          handleCancelLogout
+        }
         centered
       >
         <Modal.Body className="p-4">
@@ -515,18 +786,23 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
               className="btn btn-sm p-1 text-muted"
               style={{
                 border: "none",
-                background: "none",
-                fontSize: "22px",
+                background:
+                  "none",
+                fontSize:
+                  "22px",
                 lineHeight: 1,
               }}
-              onClick={handleCancelLogout}
+              onClick={
+                handleCancelLogout
+              }
             >
               &times;
             </button>
           </div>
 
           <p className="text-muted small mb-4">
-            Apakah Anda ingin keluar?
+            Apakah Anda ingin
+            keluar?
           </p>
 
           <div className="d-flex gap-2">
@@ -534,12 +810,18 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
               type="button"
               className="btn flex-fill fw-semibold text-white"
               style={{
-                backgroundColor: "#0B2B8E",
-                borderRadius: "8px",
-                padding: "10px 0",
-                border: "none",
+                backgroundColor:
+                  "#0B2B8E",
+                borderRadius:
+                  "8px",
+                padding:
+                  "10px 0",
+                border:
+                  "none",
               }}
-              onClick={handleConfirmLogout}
+              onClick={
+                handleConfirmLogout
+              }
             >
               YA
             </button>
@@ -548,13 +830,20 @@ const SideBar = ({ menuAktifDefault = "beranda" }) => {
               type="button"
               className="btn flex-fill fw-semibold"
               style={{
-                backgroundColor: "#fff",
-                color: "#0B2B8E",
-                border: "1px solid #0B2B8E",
-                borderRadius: "8px",
-                padding: "10px 0",
+                backgroundColor:
+                  "#fff",
+                color:
+                  "#0B2B8E",
+                border:
+                  "1px solid #0B2B8E",
+                borderRadius:
+                  "8px",
+                padding:
+                  "10px 0",
               }}
-              onClick={handleCancelLogout}
+              onClick={
+                handleCancelLogout
+              }
             >
               TIDAK
             </button>
