@@ -12,7 +12,7 @@ import {
   RiArrowLeftDoubleLine,
   RiArrowRightDoubleLine,
   RiCloseLine,
-} from "react-icons/ri";
+} from "react-icons/ri"; 
 import Swal from "sweetalert2";
 
 import { getUsersApi, updateUserApi, deleteUserApi } from "../api/userApi";
