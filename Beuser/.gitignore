@@ -1,0 +1,14 @@
+Beuser/.venv/
+Beuser/__pycache__/
+Beuser/**/__pycache__/
+Beuser/**/*.pyc
+Beuser/.env
+
+UserM/node_modules/
+UserM/dist/
+
+.vscode/
+.idea/
+
+Thumbs.db
+.DS_Store

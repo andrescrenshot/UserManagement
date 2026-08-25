@@ -1,0 +1,2 @@
+ALTER TABLE `user`
+ADD COLUMN `profile_photo` VARCHAR(500) NULL;
